@@ -36,7 +36,9 @@ a{color:var(--red)}
   padding:14px 24px; border-bottom:1px solid var(--line);
   position:sticky; top:0; background:#ffffffc7; -webkit-backdrop-filter:blur(20px) saturate(145%); backdrop-filter:blur(20px) saturate(145%); z-index:50;
 }
-.brand{display:flex; align-items:baseline; gap:10px}
+.brand{display:flex; align-items:center; gap:12px}
+.brand-logo{width:46px; height:46px; object-fit:contain; border-radius:10px; background:transparent}
+.brand-copy{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
 .brand .display{font-size:22px; letter-spacing:-.04em}
 .brand .display b{color:var(--red); font-weight:900}
 .brand small{color:var(--muted); font-size:11px; letter-spacing:.14em; text-transform:uppercase; font-weight:700}
@@ -176,6 +178,13 @@ td .stagechip{
 .copy-tn{background:none; border:none; color:var(--red); font-size:13px; font-weight:700; padding:0}
 .copy-tn:hover{text-decoration:underline}
 .empty{padding:40px; text-align:center; color:var(--muted)}
+.section-head{display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin:30px 0 14px}
+.section-head h2{font-size:24px}
+.staff-chip{display:inline-flex; align-items:center; gap:7px; padding:6px 11px; border:1px solid var(--line); border-radius:999px; font-size:12px; font-weight:700; color:var(--muted)}
+.staff-dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.activity-filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.activity-filters select{background:#fff;border:1px solid var(--line);border-radius:999px;padding:9px 14px;font-weight:650;color:var(--ink)}
+.activity-detail{max-width:360px;white-space:normal;color:var(--muted);font-size:12px}
 
 /* ---------- modal / form ---------- */
 .modal-bg{
@@ -221,8 +230,11 @@ td .stagechip{
 
 <header class="topbar">
   <div class="brand">
-    <div class="display">SHAIKH<b>SOURCING</b></div>
-    <small>Admin Dashboard</small>
+    <img class="brand-logo" src="./logo.jpg" alt="Shaikh China Sourcing logo">
+    <div class="brand-copy">
+      <div class="display">SHAIKH CHINA <b>SOURCING</b></div>
+      <small>Admin Dashboard</small>
+    </div>
   </div>
 </header>
 
@@ -243,6 +255,7 @@ td .stagechip{
       <div class="admin-head">
         <h1>All orders</h1>
         <div style="display:flex; gap:10px">
+          <span class="staff-chip" id="signed-in-user"><span class="staff-dot"></span>Admin</span>
           <button class="btn ghost sm" onclick="doLogout()">Sign out</button>
           <button class="btn ghost sm" onclick="openCustomerForm()">+ New customer</button>
           <button class="btn gold" onclick="openForm()">+ New order</button>
@@ -264,6 +277,35 @@ td .stagechip{
           <tbody id="order-rows"></tbody>
         </table>
         <div class="empty" id="empty-msg" style="display:none">No orders yet. Click “+ New order” to add your first one.</div>
+      </div>
+
+      <div class="section-head">
+        <div>
+          <h2>Team &amp; activity</h2>
+          <p style="color:var(--muted);font-size:13px;margin-top:3px">Add admin users and see exactly who changed what.</p>
+        </div>
+        <button class="btn ghost sm" onclick="openStaffForm()">+ Add admin user</button>
+      </div>
+      <div class="table-wrap" style="margin-bottom:18px">
+        <table>
+          <thead><tr><th>Admin user</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+          <tbody id="staff-rows"></tbody>
+        </table>
+        <div class="empty" id="staff-empty-msg" style="display:none">Team management needs the Supabase staff fields and manage-staff function described in the setup notes.</div>
+      </div>
+      <div class="section-head" style="margin-top:18px">
+        <h2 style="font-size:20px">Changes log</h2>
+        <div class="activity-filters">
+          <select id="activity-user-filter" onchange="renderActivity()"><option value="">All users</option></select>
+          <button class="btn ghost sm" onclick="loadActivity().then(renderActivity)">Refresh</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date &amp; time</th><th>User</th><th>Action</th><th>Item</th><th>Details</th></tr></thead>
+          <tbody id="activity-rows"></tbody>
+        </table>
+        <div class="empty" id="activity-empty-msg">No recorded changes yet.</div>
       </div>
     </div>
   </section>
@@ -318,6 +360,32 @@ td .stagechip{
   </div>
 </div>
 
+<!-- NEW ADMIN USER MODAL -->
+<div class="modal-bg" id="staff-modal-bg">
+  <div class="modal">
+    <h2>Add admin user</h2>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:16px">Creates a separate staff login. Their changes will appear under their own name in the activity log.</p>
+    <div class="fgrid">
+      <div class="field"><label>Full name</label><input id="ns-name" placeholder="Team member name"></div>
+      <div class="field"><label>Email</label><input id="ns-email" type="email" placeholder="user@shaikhchinasourcing.com"></div>
+      <div class="field full"><label>Role</label>
+        <select id="ns-role">
+          <option value="admin">Admin — manage customers and orders</option>
+          <option value="viewer">Viewer — view dashboard and logs</option>
+        </select>
+      </div>
+    </div>
+    <div id="ns-result" style="display:none;margin-top:18px;background:var(--cream);border:1px solid #de291033;border-radius:10px;padding:16px">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:8px">New staff login (shown once):</div>
+      <div style="font-family:monospace;font-size:15px" id="ns-creds"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeStaffForm()">Close</button>
+      <button class="btn" id="ns-submit" onclick="createStaff()">Create admin login</button>
+    </div>
+  </div>
+</div>
+
 <!-- RESET PASSWORD MODAL -->
 <div class="modal-bg" id="reset-modal-bg">
   <div class="modal">
@@ -360,6 +428,9 @@ let customers = [];       // admin: every customer. customer login: just their o
 let editingId = null;
 let unlocked = false;     // admin session
 let custUnlocked = false; // customer session
+let currentStaff = null;
+let staff = [];
+let activityLogs = [];
 
 // demo data shown only if Supabase isn't configured yet, so the prototype still works
 const seed = () => {
@@ -401,6 +472,21 @@ async function loadCustomers(){
   if(error){ toast('Could not load customers: '+error.message); customers = []; return; }
   customers = data;
 }
+async function loadStaff(){
+  if(NEEDS_SETUP){
+    staff = [{user_id:'demo-admin', name:'Demo Administrator', email:'admin@shaikhchinasourcing.com', role:'owner', active:true}];
+    return;
+  }
+  const {data, error} = await sb.from('staff').select('*').order('name');
+  if(error){ staff = currentStaff ? [currentStaff] : []; return; }
+  staff = data || [];
+}
+async function loadActivity(){
+  if(NEEDS_SETUP) return;
+  const {data, error} = await sb.from('activity_logs').select('*').order('created_at',{ascending:false}).limit(250);
+  if(error){ activityLogs = []; return; }
+  activityLogs = data || [];
+}
 function customerName(id){ return customers.find(c=>c.id===id)?.name || 'Unknown customer'; }
 
 /* ================= admin ================= */
@@ -412,7 +498,7 @@ async function doLogin(){
   if(error){ toast('Login failed — check email/password'); return; }
   const {data: staffRow, error: staffError} = await sb
     .from('staff')
-    .select('user_id')
+    .select('*')
     .eq('user_id', data.user.id)
     .maybeSingle();
   if(staffError || !staffRow){
@@ -420,11 +506,13 @@ async function doLogin(){
     toast('Access denied — this account is not an administrator');
     return;
   }
+  currentStaff = {...staffRow, email:staffRow.email || data.user.email};
   await enterAdmin();
 }
 async function doLogout(){
   if(!NEEDS_SETUP) await sb.auth.signOut();
   unlocked = false;
+  currentStaff = null;
   document.getElementById('admin-login').style.display='block';
   document.getElementById('admin-panel').style.display='none';
 }
@@ -434,14 +522,19 @@ async function enterAdmin(){
   document.getElementById('admin-panel').style.display='block';
   await loadCustomers();
   await loadOrders();
+  await loadStaff();
+  await loadActivity();
   renderAdmin();
 }
 async function checkExistingSession(){
   if(NEEDS_SETUP) return;
   const {data:{session}} = await sb.auth.getSession();
   if(!session) return;
-  const {data: staffRow} = await sb.from('staff').select('user_id').eq('user_id', session.user.id).maybeSingle();
-  if(staffRow) await enterAdmin();
+  const {data: staffRow} = await sb.from('staff').select('*').eq('user_id', session.user.id).maybeSingle();
+  if(staffRow){
+    currentStaff = {...staffRow, email:staffRow.email || session.user.email};
+    await enterAdmin();
+  }
   else await sb.auth.signOut();
 }
 
@@ -450,6 +543,8 @@ function renderAdmin(){
   const active = orders.filter(o=>o.pct<100).length;
   const shipping = orders.filter(o=>o.stage==='Shipping'||o.stage==='Customs').length;
   const delivered = orders.filter(o=>o.pct>=100).length;
+  const signedIn = currentStaff?.name || currentStaff?.email || (NEEDS_SETUP ? 'Demo Administrator' : 'Admin');
+  document.getElementById('signed-in-user').innerHTML = `<span class="staff-dot"></span>${esc(signedIn)}`;
   document.getElementById('stats').innerHTML = `
     <div class="stat"><b>${orders.length}</b><span>Total orders</span></div>
     <div class="stat"><b>${customers.length}</b><span>Customers</span></div>
@@ -481,6 +576,92 @@ function renderAdmin(){
       <td style="font-size:13px; color:var(--ink-dim)">${esc(c.email)}</td>
       <td><button class="btn ghost sm" onclick="openResetModal('${c.id}')">Reset password</button></td>
     </tr>`).join('');
+  renderStaff();
+  renderActivity();
+}
+
+function renderStaff(){
+  const body = document.getElementById('staff-rows');
+  const empty = document.getElementById('staff-empty-msg');
+  empty.style.display = staff.length ? 'none' : 'block';
+  body.innerHTML = staff.map(s=>`
+    <tr class="row">
+      <td><strong>${esc(s.name || 'Staff user')}</strong></td>
+      <td>${esc(s.email || '—')}</td>
+      <td><span class="stagechip">${esc(s.role || 'admin')}</span></td>
+      <td>${s.active===false ? 'Disabled' : 'Active'}</td>
+    </tr>`).join('');
+  const filter = document.getElementById('activity-user-filter');
+  const selected = filter.value;
+  filter.innerHTML = `<option value="">All users</option>` + staff.map(s=>
+    `<option value="${esc(s.user_id)}">${esc(s.name || s.email || 'Staff user')}</option>`).join('');
+  filter.value = selected;
+}
+function renderActivity(){
+  const filter = document.getElementById('activity-user-filter')?.value || '';
+  const rows = filter ? activityLogs.filter(x=>x.user_id===filter) : activityLogs;
+  document.getElementById('activity-empty-msg').style.display = rows.length ? 'none' : 'block';
+  document.getElementById('activity-rows').innerHTML = rows.map(x=>`
+    <tr>
+      <td>${esc(new Date(x.created_at).toLocaleString('en-GB'))}</td>
+      <td><strong>${esc(x.user_name || x.user_email || 'Unknown user')}</strong></td>
+      <td>${esc(x.action || 'updated')}</td>
+      <td>${esc([x.entity_type,x.entity_label].filter(Boolean).join(': '))}</td>
+      <td class="activity-detail">${esc(x.details || '')}</td>
+    </tr>`).join('');
+}
+async function logActivity(action, entityType, entityId, entityLabel, details){
+  const entry = {
+    user_id: currentStaff?.user_id || 'demo-admin',
+    user_name: currentStaff?.name || 'Demo Administrator',
+    user_email: currentStaff?.email || 'admin@shaikhchinasourcing.com',
+    action, entity_type:entityType, entity_id:entityId || null,
+    entity_label:entityLabel || '', details:details || '',
+    created_at:new Date().toISOString()
+  };
+  if(NEEDS_SETUP){ activityLogs.unshift(entry); return; }
+  const {error} = await sb.from('activity_logs').insert(entry);
+  if(!error) activityLogs.unshift(entry);
+}
+
+function openStaffForm(){
+  document.getElementById('ns-name').value='';
+  document.getElementById('ns-email').value='';
+  document.getElementById('ns-role').value='admin';
+  document.getElementById('ns-result').style.display='none';
+  document.getElementById('ns-submit').style.display='inline-block';
+  document.getElementById('staff-modal-bg').classList.add('on');
+}
+function closeStaffForm(){
+  document.getElementById('staff-modal-bg').classList.remove('on');
+}
+async function createStaff(){
+  const name = document.getElementById('ns-name').value.trim();
+  const email = document.getElementById('ns-email').value.trim();
+  const role = document.getElementById('ns-role').value;
+  if(!name || !email){ toast('Name and email are required'); return; }
+  if(NEEDS_SETUP){
+    const user_id = crypto.randomUUID();
+    staff.push({user_id,name,email,role,active:true});
+    activityLogs.unshift({user_id:'demo-admin',user_name:'Demo Administrator',user_email:'admin@shaikhchinasourcing.com',action:'created',entity_type:'staff',entity_id:user_id,entity_label:name,details:`Added ${email} as ${role}`,created_at:new Date().toISOString()});
+    document.getElementById('ns-result').style.display='block';
+    document.getElementById('ns-creds').innerHTML=`Email: ${esc(email)}<br>Password: (demo mode)`;
+    document.getElementById('ns-submit').style.display='none';
+    renderStaff(); renderActivity();
+    return;
+  }
+  const {data:{session}} = await sb.auth.getSession();
+  const {data,error} = await sb.functions.invoke('manage-staff',{
+    body:{action:'create',name,email,role},
+    headers:{Authorization:`Bearer ${session.access_token}`}
+  });
+  if(error || data?.error){ toast('Could not create admin user: '+(data?.error||error.message)); return; }
+  await logActivity('created','staff',data.user_id,name,`Added ${email} as ${role}`);
+  await loadStaff();
+  document.getElementById('ns-result').style.display='block';
+  document.getElementById('ns-creds').innerHTML=`Email: ${esc(email)}<br>Password: ${esc(data.password || 'Invitation sent')}`;
+  document.getElementById('ns-submit').style.display='none';
+  renderStaff(); renderActivity();
 }
 
 /* ---- reset password ---- */
@@ -517,6 +698,8 @@ async function confirmReset(){
   document.getElementById('reset-result').style.display='block';
   document.getElementById('reset-creds').innerHTML = `Email: ${esc(data.email)}<br>Password: ${esc(data.password)}`;
   document.getElementById('reset-submit').style.display='none';
+  await logActivity('reset password','customer',c.id,c.name,`Reset login password for ${c.email}`);
+  renderActivity();
 }
 function copyResetCreds(){
   const text = document.getElementById('reset-creds').innerText.replace('\n',' / ');
@@ -548,6 +731,8 @@ async function createCustomer(){
     const id = crypto.randomUUID();
     customers.push({id, name, email, city});
     showCreds(email, '(demo mode — no real login created)');
+    await logActivity('created','customer',id,name,`Created customer login for ${email}`);
+    renderAdmin();
     return;
   }
 
@@ -558,6 +743,9 @@ async function createCustomer(){
   });
   if(error || data?.error){ toast('Could not create login: '+(data?.error||error.message)); return; }
   showCreds(data.email, data.password);
+  await logActivity('created','customer',data.customer_id || null,name,`Created customer login for ${email}`);
+  await loadCustomers();
+  renderAdmin();
 }
 function showCreds(email, password){
   document.getElementById('nc-result').style.display='block';
@@ -635,6 +823,9 @@ async function saveOrder(){
     if(error){ toast('Save failed: '+error.message); return; }
   }
 
+  const savedId = editingId || record.id || null;
+  await logActivity(editingId?'updated':'created','order',savedId,record.tn,
+    `${customerName(customer_id)} — ${record.product}; stage ${record.stage}; progress ${record.pct}%`);
   await loadOrders();
   closeForm();
   renderAdmin();
@@ -642,12 +833,14 @@ async function saveOrder(){
 }
 async function deleteOrder(){
   if(!confirm('Delete this order? The customer will no longer see it in their dashboard.')) return;
+  const deleting = orders.find(x=>x.id===editingId);
   if(NEEDS_SETUP){
     orders = orders.filter(x=>x.id!==editingId);
   } else {
     const {error} = await sb.from('orders').delete().eq('id', editingId);
     if(error){ toast('Delete failed: '+error.message); return; }
   }
+  await logActivity('deleted','order',editingId,deleting?.tn || '',`${customerName(deleting?.customer_id)} — ${deleting?.product || ''}`);
   await loadOrders();
   closeForm();
   renderAdmin();
