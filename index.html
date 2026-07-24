@@ -230,7 +230,7 @@ td .stagechip{
 
 <header class="topbar">
   <div class="brand">
-    <img class="brand-logo" src="./logo.jpg" alt="Shaikh China Sourcing logo">
+    <img class="brand-logo" src="./Logo%20(1).jpeg" alt="Shaikh China Sourcing logo">
     <div class="brand-copy">
       <div class="display">SHAIKH CHINA <b>SOURCING</b></div>
       <small>Admin Dashboard</small>
@@ -354,6 +354,15 @@ td .stagechip{
       <div class="field full"><label>Customer / company name</label><input id="nc-name" placeholder="Bilal Traders"></div>
       <div class="field"><label>Email (their username)</label><input id="nc-email" type="email" placeholder="bilal@traders.com"></div>
       <div class="field"><label>City</label><input id="nc-city" placeholder="Karachi"></div>
+      <div class="field"><label>Password type</label>
+        <select id="nc-password-mode" onchange="toggleCustomerPasswordField('nc')">
+          <option value="automatic">Generate automatically</option>
+          <option value="custom">Use custom password</option>
+        </select>
+      </div>
+      <div class="field" id="nc-password-wrap" style="display:none"><label>Custom password</label>
+        <input id="nc-password" type="password" minlength="10" placeholder="At least 10 characters">
+      </div>
     </div>
     <div id="nc-result" style="display:none; margin-top:18px; background:var(--navy); border:1px solid var(--gold); border-radius:10px; padding:16px">
       <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px">Share these with the customer (shown once):</div>
@@ -462,7 +471,18 @@ td .stagechip{
 <div class="modal-bg" id="reset-modal-bg">
   <div class="modal">
     <h2 id="reset-title">Reset password</h2>
-    <p style="color:var(--ink-dim); font-size:14px; margin:6px 0 16px" id="reset-sub">This creates a new password and invalidates their old one.</p>
+    <p style="color:var(--ink-dim); font-size:14px; margin:6px 0 16px" id="reset-sub">Generate a secure password automatically or enter a custom password to share with the customer.</p>
+    <div class="fgrid" style="margin-bottom:18px">
+      <div class="field"><label>Password type</label>
+        <select id="reset-password-mode" onchange="toggleCustomerPasswordField('reset')">
+          <option value="automatic">Generate automatically</option>
+          <option value="custom">Use custom password</option>
+        </select>
+      </div>
+      <div class="field" id="reset-password-wrap" style="display:none"><label>Custom password</label>
+        <input id="reset-password" type="password" minlength="10" placeholder="At least 10 characters">
+      </div>
+    </div>
     <div id="reset-result" style="display:none; background:var(--navy); border:1px solid var(--gold); border-radius:10px; padding:16px">
       <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px">New login (shown once):</div>
       <div style="font-family:monospace; font-size:15px" id="reset-creds"></div>
@@ -874,6 +894,9 @@ function openResetModal(customerId){
   resettingId = customerId;
   const c = customers.find(x=>x.id===customerId);
   document.getElementById('reset-title').textContent = `Reset password — ${c?.name||''}`;
+  document.getElementById('reset-password-mode').value='automatic';
+  document.getElementById('reset-password').value='';
+  toggleCustomerPasswordField('reset');
   document.getElementById('reset-result').style.display='none';
   document.getElementById('reset-submit').style.display='inline-block';
   document.getElementById('reset-modal-bg').classList.add('on');
@@ -886,20 +909,35 @@ async function confirmReset(){
   if(!canManageUsers()){ toast('Your role cannot reset user passwords'); return; }
   const c = customers.find(x=>x.id===resettingId);
   if(!c) return;
+  const password_mode = document.getElementById('reset-password-mode').value;
+  const password = document.getElementById('reset-password').value;
+  if(password_mode==='custom' && password.length<10){
+    toast('Custom password must contain at least 10 characters');
+    return;
+  }
 
   if(NEEDS_SETUP){
     document.getElementById('reset-result').style.display='block';
-    document.getElementById('reset-creds').innerHTML = `Email: ${esc(c.email)}<br>Password: (demo mode — no real login to reset)`;
+    document.getElementById('reset-creds').innerHTML = `Email: ${esc(c.email)}<br>Password: ${esc(password_mode==='custom'?password:'Demo-Customer!4837')}`;
     document.getElementById('reset-submit').style.display='none';
     return;
   }
 
   const {data:{session}} = await sb.auth.getSession();
   const {data, error} = await sb.functions.invoke('create-customer', {
-    body:{action:'reset', customer_id: resettingId},
+    body:{
+      action:'reset',
+      customer_id: resettingId,
+      password_mode,
+      password:password_mode==='custom'?password:undefined
+    },
     headers:{ Authorization:`Bearer ${session.access_token}` }
   });
-  if(error || data?.error){ toast('Reset failed: '+(data?.error||error.message)); return; }
+  if(error || data?.error){
+    const message = await functionErrorMessage(error,data);
+    toast('Reset failed: '+message);
+    return;
+  }
   document.getElementById('reset-result').style.display='block';
   document.getElementById('reset-creds').innerHTML = `Email: ${esc(data.email)}<br>Password: ${esc(data.password)}`;
   document.getElementById('reset-submit').style.display='none';
@@ -919,6 +957,9 @@ function openCustomerForm(){
   document.getElementById('nc-name').value='';
   document.getElementById('nc-email').value='';
   document.getElementById('nc-city').value='';
+  document.getElementById('nc-password-mode').value='automatic';
+  document.getElementById('nc-password').value='';
+  toggleCustomerPasswordField('nc');
   document.getElementById('nc-result').style.display='none';
   document.getElementById('nc-submit').style.display='inline-block';
   document.getElementById('cust-modal-bg').classList.add('on');
@@ -932,12 +973,18 @@ async function createCustomer(){
   const name = document.getElementById('nc-name').value.trim();
   const email = document.getElementById('nc-email').value.trim();
   const city = document.getElementById('nc-city').value.trim();
+  const password_mode = document.getElementById('nc-password-mode').value;
+  const password = document.getElementById('nc-password').value;
   if(!name || !email){ toast('Name and email are required'); return; }
+  if(password_mode==='custom' && password.length<10){
+    toast('Custom password must contain at least 10 characters');
+    return;
+  }
 
   if(NEEDS_SETUP){
     const id = crypto.randomUUID();
     customers.push({id, name, email, city});
-    showCreds(email, '(demo mode — no real login created)');
+    showCreds(email, password_mode==='custom'?password:'Demo-Customer!4837');
     await logActivity('created','customer',id,name,`Created customer login for ${email}`);
     renderAdmin();
     return;
@@ -945,10 +992,21 @@ async function createCustomer(){
 
   const {data:{session}} = await sb.auth.getSession();
   const {data, error} = await sb.functions.invoke('create-customer', {
-    body:{name, email, city},
+    body:{
+      action:'create',
+      name,
+      email,
+      city,
+      password_mode,
+      password:password_mode==='custom'?password:undefined
+    },
     headers:{ Authorization:`Bearer ${session.access_token}` }
   });
-  if(error || data?.error){ toast('Could not create login: '+(data?.error||error.message)); return; }
+  if(error || data?.error){
+    const message = await functionErrorMessage(error,data);
+    toast('Could not create login: '+message);
+    return;
+  }
   showCreds(data.email, data.password);
   await logActivity('created','customer',data.customer_id || null,name,`Created customer login for ${email}`);
   await loadCustomers();
@@ -964,6 +1022,19 @@ function copyCreds(){
   const msg = `Assalam o Alaikum! Here's your Shaikh China Sourcing order tracking login — ${text}. Sign in any time to see your order status.`;
   navigator.clipboard?.writeText(msg).then(()=>toast('Login message copied — paste into WhatsApp'))
     .catch(()=>toast('Copy manually: '+text));
+}
+
+function toggleCustomerPasswordField(prefix){
+  const custom = document.getElementById(`${prefix}-password-mode`).value==='custom';
+  document.getElementById(`${prefix}-password-wrap`).style.display = custom ? 'block' : 'none';
+}
+async function functionErrorMessage(error,data){
+  let message = data?.error || error?.message || 'Unknown Edge Function error';
+  try {
+    const payload = await error?.context?.json();
+    if(payload?.error) message = payload.error;
+  } catch {}
+  return message;
 }
 
 /* ---- order form ---- */
