@@ -257,7 +257,7 @@ td .stagechip{
         <div style="display:flex; gap:10px">
           <span class="staff-chip" id="signed-in-user"><span class="staff-dot"></span>Admin</span>
           <button class="btn ghost sm" onclick="doLogout()">Sign out</button>
-          <button class="btn ghost sm" onclick="openCustomerForm()">+ New customer</button>
+          <button class="btn ghost sm" id="new-customer-btn" onclick="openCustomerForm()">+ New customer</button>
           <button class="btn gold" onclick="openForm()">+ New order</button>
         </div>
       </div>
@@ -279,33 +279,40 @@ td .stagechip{
         <div class="empty" id="empty-msg" style="display:none">No orders yet. Click “+ New order” to add your first one.</div>
       </div>
 
-      <div class="section-head">
-        <div>
-          <h2>Team &amp; activity</h2>
-          <p style="color:var(--muted);font-size:13px;margin-top:3px">Add admin users and see exactly who changed what.</p>
+      <div id="team-section">
+        <div class="section-head">
+          <div>
+            <h2>Team management</h2>
+            <p style="color:var(--muted);font-size:13px;margin-top:3px">Create staff logins and manage team access.</p>
+          </div>
+          <button class="btn ghost sm" onclick="openStaffForm()">+ Add team user</button>
         </div>
-        <button class="btn ghost sm" onclick="openStaffForm()">+ Add admin user</button>
-      </div>
-      <div class="table-wrap" style="margin-bottom:18px">
-        <table>
-          <thead><tr><th>Admin user</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
-          <tbody id="staff-rows"></tbody>
-        </table>
-        <div class="empty" id="staff-empty-msg" style="display:none">Team management needs the Supabase staff fields and manage-staff function described in the setup notes.</div>
-      </div>
-      <div class="section-head" style="margin-top:18px">
-        <h2 style="font-size:20px">Changes log</h2>
-        <div class="activity-filters">
-          <select id="activity-user-filter" onchange="renderActivity()"><option value="">All users</option></select>
-          <button class="btn ghost sm" onclick="loadActivity().then(renderActivity)">Refresh</button>
+        <div class="table-wrap" style="margin-bottom:18px">
+          <table>
+            <thead><tr><th>Team user</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead>
+            <tbody id="staff-rows"></tbody>
+          </table>
+          <div class="empty" id="staff-empty-msg" style="display:none">No team users are available.</div>
         </div>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Date &amp; time</th><th>User</th><th>Action</th><th>Item</th><th>Details</th></tr></thead>
-          <tbody id="activity-rows"></tbody>
-        </table>
-        <div class="empty" id="activity-empty-msg">No recorded changes yet.</div>
+      <div id="activity-section">
+        <div class="section-head" style="margin-top:18px">
+          <div>
+            <h2 style="font-size:20px">Owner changes log</h2>
+            <p style="color:var(--muted);font-size:13px;margin-top:3px">Visible only to owners.</p>
+          </div>
+          <div class="activity-filters">
+            <select id="activity-user-filter" onchange="renderActivity()"><option value="">All users</option></select>
+            <button class="btn ghost sm" onclick="loadActivity().then(renderActivity)">Refresh</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date &amp; time</th><th>User</th><th>Action</th><th>Item</th><th>Details</th></tr></thead>
+            <tbody id="activity-rows"></tbody>
+          </table>
+          <div class="empty" id="activity-empty-msg">No recorded changes yet.</div>
+        </div>
       </div>
     </div>
   </section>
@@ -363,16 +370,25 @@ td .stagechip{
 <!-- NEW ADMIN USER MODAL -->
 <div class="modal-bg" id="staff-modal-bg">
   <div class="modal">
-    <h2>Add admin user</h2>
-    <p style="color:var(--muted);font-size:14px;margin-bottom:16px">Creates a separate staff login. Their changes will appear under their own name in the activity log.</p>
+    <h2>Add team user</h2>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:16px">Owners and admins can create a separate staff login with an automatic or custom password.</p>
     <div class="fgrid">
       <div class="field"><label>Full name</label><input id="ns-name" placeholder="Team member name"></div>
       <div class="field"><label>Email</label><input id="ns-email" type="email" placeholder="user@shaikhchinasourcing.com"></div>
       <div class="field full"><label>Role</label>
         <select id="ns-role">
-          <option value="admin">Admin — manage customers and orders</option>
-          <option value="viewer">Viewer — view dashboard and logs</option>
+          <option value="manager">Manager — operational work only</option>
+          <option value="admin">Admin — can also create users and set passwords</option>
         </select>
+      </div>
+      <div class="field"><label>Password type</label>
+        <select id="ns-password-mode" onchange="toggleStaffPasswordField('ns')">
+          <option value="automatic">Generate automatically</option>
+          <option value="custom">Use custom password</option>
+        </select>
+      </div>
+      <div class="field" id="ns-password-wrap" style="display:none"><label>Custom password</label>
+        <input id="ns-password" type="password" minlength="10" placeholder="At least 10 characters">
       </div>
     </div>
     <div id="ns-result" style="display:none;margin-top:18px;background:var(--cream);border:1px solid #de291033;border-radius:10px;padding:16px">
@@ -381,7 +397,63 @@ td .stagechip{
     </div>
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeStaffForm()">Close</button>
-      <button class="btn" id="ns-submit" onclick="createStaff()">Create admin login</button>
+      <button class="btn" id="ns-submit" onclick="createStaff()">Create team login</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT TEAM USER MODAL — OWNER ONLY -->
+<div class="modal-bg" id="edit-staff-modal-bg">
+  <div class="modal">
+    <h2 id="es-title">Edit team user</h2>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:16px">Only an owner can edit a team member’s profile, role or access status.</p>
+    <div class="fgrid">
+      <div class="field"><label>Full name</label><input id="es-name"></div>
+      <div class="field"><label>Email</label><input id="es-email" type="email"></div>
+      <div class="field"><label>Role</label>
+        <select id="es-role">
+          <option value="owner">Owner — full control and logs</option>
+          <option value="admin">Admin — create users and set passwords</option>
+          <option value="manager">Manager — operational work only</option>
+        </select>
+      </div>
+      <div class="field"><label>Status</label>
+        <select id="es-active">
+          <option value="true">Active</option>
+          <option value="false">Disabled</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeEditStaffForm()">Cancel</button>
+      <button class="btn" onclick="saveStaffChanges()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- TEAM USER PASSWORD MODAL — OWNER / ADMIN -->
+<div class="modal-bg" id="staff-password-modal-bg">
+  <div class="modal">
+    <h2 id="sp-title">Set team user password</h2>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:16px">Generate a secure password automatically or enter your own.</p>
+    <div class="fgrid">
+      <div class="field full"><label>Password type</label>
+        <select id="sp-password-mode" onchange="toggleStaffPasswordField('sp')">
+          <option value="automatic">Generate automatically</option>
+          <option value="custom">Use custom password</option>
+        </select>
+      </div>
+      <div class="field full" id="sp-password-wrap" style="display:none"><label>Custom password</label>
+        <input id="sp-password" type="password" minlength="10" placeholder="At least 10 characters">
+      </div>
+    </div>
+    <div id="sp-result" style="display:none;margin-top:18px;background:var(--cream);border:1px solid #de291033;border-radius:10px;padding:16px">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:8px">New login password (shown once):</div>
+      <div style="font-family:monospace;font-size:15px" id="sp-creds"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeStaffPasswordForm()">Close</button>
+      <button class="btn" id="sp-submit" onclick="saveStaffPassword()">Set password</button>
     </div>
   </div>
 </div>
@@ -431,6 +503,12 @@ let custUnlocked = false; // customer session
 let currentStaff = null;
 let staff = [];
 let activityLogs = [];
+let editingStaffId = null;
+let passwordStaffId = null;
+
+function currentRole(){ return currentStaff?.role || (NEEDS_SETUP ? 'owner' : 'manager'); }
+function isOwner(){ return currentRole()==='owner'; }
+function canManageUsers(){ return ['owner','admin'].includes(currentRole()); }
 
 // demo data shown only if Supabase isn't configured yet, so the prototype still works
 const seed = () => {
@@ -482,6 +560,7 @@ async function loadStaff(){
   staff = data || [];
 }
 async function loadActivity(){
+  if(!isOwner()){ activityLogs = []; return; }
   if(NEEDS_SETUP) return;
   const {data, error} = await sb.from('activity_logs').select('*').order('created_at',{ascending:false}).limit(250);
   if(error){ activityLogs = []; return; }
@@ -501,7 +580,7 @@ async function doLogin(){
     .select('*')
     .eq('user_id', data.user.id)
     .maybeSingle();
-  if(staffError || !staffRow){
+  if(staffError || !staffRow || staffRow.active===false){
     await sb.auth.signOut();
     toast('Access denied — this account is not an administrator');
     return;
@@ -523,7 +602,7 @@ async function enterAdmin(){
   await loadCustomers();
   await loadOrders();
   await loadStaff();
-  await loadActivity();
+  if(isOwner()) await loadActivity();
   renderAdmin();
 }
 async function checkExistingSession(){
@@ -531,7 +610,7 @@ async function checkExistingSession(){
   const {data:{session}} = await sb.auth.getSession();
   if(!session) return;
   const {data: staffRow} = await sb.from('staff').select('*').eq('user_id', session.user.id).maybeSingle();
-  if(staffRow){
+  if(staffRow && staffRow.active!==false){
     currentStaff = {...staffRow, email:staffRow.email || session.user.email};
     await enterAdmin();
   }
@@ -544,7 +623,10 @@ function renderAdmin(){
   const shipping = orders.filter(o=>o.stage==='Shipping'||o.stage==='Customs').length;
   const delivered = orders.filter(o=>o.pct>=100).length;
   const signedIn = currentStaff?.name || currentStaff?.email || (NEEDS_SETUP ? 'Demo Administrator' : 'Admin');
-  document.getElementById('signed-in-user').innerHTML = `<span class="staff-dot"></span>${esc(signedIn)}`;
+  document.getElementById('signed-in-user').innerHTML = `<span class="staff-dot"></span>${esc(signedIn)} · ${esc(currentRole())}`;
+  document.getElementById('team-section').style.display = canManageUsers() ? 'block' : 'none';
+  document.getElementById('activity-section').style.display = isOwner() ? 'block' : 'none';
+  document.getElementById('new-customer-btn').style.display = canManageUsers() ? 'inline-block' : 'none';
   document.getElementById('stats').innerHTML = `
     <div class="stat"><b>${orders.length}</b><span>Total orders</span></div>
     <div class="stat"><b>${customers.length}</b><span>Customers</span></div>
@@ -574,7 +656,7 @@ function renderAdmin(){
       <td><strong>${esc(c.name)}</strong></td>
       <td>${esc(c.city||'—')}</td>
       <td style="font-size:13px; color:var(--ink-dim)">${esc(c.email)}</td>
-      <td><button class="btn ghost sm" onclick="openResetModal('${c.id}')">Reset password</button></td>
+      <td>${canManageUsers()?`<button class="btn ghost sm" onclick="openResetModal('${c.id}')">Reset password</button>`:'—'}</td>
     </tr>`).join('');
   renderStaff();
   renderActivity();
@@ -584,13 +666,20 @@ function renderStaff(){
   const body = document.getElementById('staff-rows');
   const empty = document.getElementById('staff-empty-msg');
   empty.style.display = staff.length ? 'none' : 'block';
-  body.innerHTML = staff.map(s=>`
+  body.innerHTML = staff.map(s=>{
+    const canPassword = canManageUsers() && (isOwner() || s.role!=='owner');
+    const actions = [
+      isOwner() ? `<button class="btn ghost sm" onclick="openEditStaffForm('${s.user_id}')">Edit</button>` : '',
+      canPassword ? `<button class="btn ghost sm" onclick="openStaffPasswordForm('${s.user_id}')">Password</button>` : ''
+    ].filter(Boolean).join(' ');
+    return `
     <tr class="row">
       <td><strong>${esc(s.name || 'Staff user')}</strong></td>
       <td>${esc(s.email || '—')}</td>
       <td><span class="stagechip">${esc(s.role || 'admin')}</span></td>
       <td>${s.active===false ? 'Disabled' : 'Active'}</td>
-    </tr>`).join('');
+      <td style="white-space:nowrap">${actions || '—'}</td>
+    </tr>`}).join('');
   const filter = document.getElementById('activity-user-filter');
   const selected = filter.value;
   filter.innerHTML = `<option value="">All users</option>` + staff.map(s=>
@@ -598,6 +687,7 @@ function renderStaff(){
   filter.value = selected;
 }
 function renderActivity(){
+  if(!isOwner()) return;
   const filter = document.getElementById('activity-user-filter')?.value || '';
   const rows = filter ? activityLogs.filter(x=>x.user_id===filter) : activityLogs;
   document.getElementById('activity-empty-msg').style.display = rows.length ? 'none' : 'block';
@@ -625,9 +715,13 @@ async function logActivity(action, entityType, entityId, entityLabel, details){
 }
 
 function openStaffForm(){
+  if(!canManageUsers()){ toast('Your role cannot create team users'); return; }
   document.getElementById('ns-name').value='';
   document.getElementById('ns-email').value='';
-  document.getElementById('ns-role').value='admin';
+  document.getElementById('ns-role').value='manager';
+  document.getElementById('ns-password-mode').value='automatic';
+  document.getElementById('ns-password').value='';
+  toggleStaffPasswordField('ns');
   document.getElementById('ns-result').style.display='none';
   document.getElementById('ns-submit').style.display='inline-block';
   document.getElementById('staff-modal-bg').classList.add('on');
@@ -639,23 +733,34 @@ async function createStaff(){
   const name = document.getElementById('ns-name').value.trim();
   const email = document.getElementById('ns-email').value.trim();
   const role = document.getElementById('ns-role').value;
+  const password_mode = document.getElementById('ns-password-mode').value;
+  const password = document.getElementById('ns-password').value;
   if(!name || !email){ toast('Name and email are required'); return; }
+  if(password_mode==='custom' && password.length<10){ toast('Custom password must contain at least 10 characters'); return; }
   if(NEEDS_SETUP){
     const user_id = crypto.randomUUID();
     staff.push({user_id,name,email,role,active:true});
     activityLogs.unshift({user_id:'demo-admin',user_name:'Demo Administrator',user_email:'admin@shaikhchinasourcing.com',action:'created',entity_type:'staff',entity_id:user_id,entity_label:name,details:`Added ${email} as ${role}`,created_at:new Date().toISOString()});
     document.getElementById('ns-result').style.display='block';
-    document.getElementById('ns-creds').innerHTML=`Email: ${esc(email)}<br>Password: (demo mode)`;
+    document.getElementById('ns-creds').innerHTML=`Email: ${esc(email)}<br>Password: ${esc(password_mode==='custom'?password:'Demo-Auto!4837')}`;
     document.getElementById('ns-submit').style.display='none';
     renderStaff(); renderActivity();
     return;
   }
   const {data:{session}} = await sb.auth.getSession();
   const {data,error} = await sb.functions.invoke('manage-staff',{
-    body:{action:'create',name,email,role},
+    body:{action:'create',name,email,role,password_mode,password:password_mode==='custom'?password:undefined},
     headers:{Authorization:`Bearer ${session.access_token}`}
   });
-  if(error || data?.error){ toast('Could not create admin user: '+(data?.error||error.message)); return; }
+  if(error || data?.error){
+    let message = data?.error || error?.message || 'Unknown function error';
+    try {
+      const payload = await error?.context?.json();
+      if(payload?.error) message = payload.error;
+    } catch {}
+    toast('Could not create admin user: '+message);
+    return;
+  }
   await logActivity('created','staff',data.user_id,name,`Added ${email} as ${role}`);
   await loadStaff();
   document.getElementById('ns-result').style.display='block';
@@ -664,9 +769,108 @@ async function createStaff(){
   renderStaff(); renderActivity();
 }
 
+function toggleStaffPasswordField(prefix){
+  const custom = document.getElementById(`${prefix}-password-mode`).value==='custom';
+  document.getElementById(`${prefix}-password-wrap`).style.display = custom ? 'block' : 'none';
+}
+async function staffFunction(body){
+  const {data:{session}} = await sb.auth.getSession();
+  const {data,error} = await sb.functions.invoke('manage-staff',{
+    body,
+    headers:{Authorization:`Bearer ${session.access_token}`}
+  });
+  if(error || data?.error){
+    let message = data?.error || error?.message || 'Unknown function error';
+    try {
+      const payload = await error?.context?.json();
+      if(payload?.error) message = payload.error;
+    } catch {}
+    throw new Error(message);
+  }
+  return data;
+}
+
+function openEditStaffForm(userId){
+  if(!isOwner()){ toast('Only an owner can edit team users'); return; }
+  const s = staff.find(x=>x.user_id===userId);
+  if(!s) return;
+  editingStaffId = userId;
+  document.getElementById('es-title').textContent = `Edit team user — ${s.name || s.email}`;
+  document.getElementById('es-name').value = s.name || '';
+  document.getElementById('es-email').value = s.email || '';
+  document.getElementById('es-role').value = s.role || 'manager';
+  document.getElementById('es-active').value = String(s.active!==false);
+  document.getElementById('edit-staff-modal-bg').classList.add('on');
+}
+function closeEditStaffForm(){
+  editingStaffId = null;
+  document.getElementById('edit-staff-modal-bg').classList.remove('on');
+}
+async function saveStaffChanges(){
+  const target = staff.find(x=>x.user_id===editingStaffId);
+  if(!target) return;
+  const name = document.getElementById('es-name').value.trim();
+  const email = document.getElementById('es-email').value.trim();
+  const role = document.getElementById('es-role').value;
+  const active = document.getElementById('es-active').value==='true';
+  if(!name || !email){ toast('Name and email are required'); return; }
+  try {
+    if(NEEDS_SETUP){
+      Object.assign(target,{name,email,role,active});
+    } else {
+      await staffFunction({action:'update',user_id:editingStaffId,name,email,role,active});
+      await loadStaff();
+      const refreshedSelf = staff.find(x=>x.user_id===currentStaff?.user_id);
+      if(refreshedSelf) currentStaff = refreshedSelf;
+    }
+    await logActivity('updated','staff',editingStaffId,name,`Profile updated; role ${role}; ${active?'active':'disabled'}`);
+    closeEditStaffForm();
+    renderAdmin();
+    toast('Team user updated');
+  } catch(error){ toast('Could not update team user: '+error.message); }
+}
+
+function openStaffPasswordForm(userId){
+  const s = staff.find(x=>x.user_id===userId);
+  if(!s || !canManageUsers() || (!isOwner() && s.role==='owner')){
+    toast('Your role cannot change this password'); return;
+  }
+  passwordStaffId = userId;
+  document.getElementById('sp-title').textContent = `Set password — ${s.name || s.email}`;
+  document.getElementById('sp-password-mode').value='automatic';
+  document.getElementById('sp-password').value='';
+  document.getElementById('sp-result').style.display='none';
+  document.getElementById('sp-submit').style.display='inline-block';
+  toggleStaffPasswordField('sp');
+  document.getElementById('staff-password-modal-bg').classList.add('on');
+}
+function closeStaffPasswordForm(){
+  passwordStaffId = null;
+  document.getElementById('staff-password-modal-bg').classList.remove('on');
+}
+async function saveStaffPassword(){
+  const target = staff.find(x=>x.user_id===passwordStaffId);
+  if(!target) return;
+  const password_mode = document.getElementById('sp-password-mode').value;
+  const password = document.getElementById('sp-password').value;
+  if(password_mode==='custom' && password.length<10){ toast('Custom password must contain at least 10 characters'); return; }
+  try {
+    const result = NEEDS_SETUP
+      ? {password:password_mode==='custom'?password:'Demo-Auto!4837'}
+      : await staffFunction({action:'reset_password',user_id:passwordStaffId,password_mode,password:password_mode==='custom'?password:undefined});
+    document.getElementById('sp-result').style.display='block';
+    document.getElementById('sp-creds').innerHTML=`Email: ${esc(target.email)}<br>Password: ${esc(result.password)}`;
+    document.getElementById('sp-submit').style.display='none';
+    await logActivity('reset password','staff',passwordStaffId,target.name,`Password changed for ${target.email}`);
+    if(isOwner()) renderActivity();
+    toast('Password updated');
+  } catch(error){ toast('Could not set password: '+error.message); }
+}
+
 /* ---- reset password ---- */
 let resettingId = null;
 function openResetModal(customerId){
+  if(!canManageUsers()){ toast('Your role cannot reset user passwords'); return; }
   resettingId = customerId;
   const c = customers.find(x=>x.id===customerId);
   document.getElementById('reset-title').textContent = `Reset password — ${c?.name||''}`;
@@ -679,6 +883,7 @@ function closeResetModal(){
   resettingId = null;
 }
 async function confirmReset(){
+  if(!canManageUsers()){ toast('Your role cannot reset user passwords'); return; }
   const c = customers.find(x=>x.id===resettingId);
   if(!c) return;
 
@@ -710,6 +915,7 @@ function copyResetCreds(){
 
 /* ---- new customer ---- */
 function openCustomerForm(){
+  if(!canManageUsers()){ toast('Your role cannot create users'); return; }
   document.getElementById('nc-name').value='';
   document.getElementById('nc-email').value='';
   document.getElementById('nc-city').value='';
@@ -722,6 +928,7 @@ function closeCustomerForm(){
   loadCustomers().then(renderAdmin); // refresh table/dropdown with the new customer
 }
 async function createCustomer(){
+  if(!canManageUsers()){ toast('Your role cannot create users'); return; }
   const name = document.getElementById('nc-name').value.trim();
   const email = document.getElementById('nc-email').value.trim();
   const city = document.getElementById('nc-city').value.trim();
