@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Shaikh China Sourcing — Order Tracker</title>
+<title>Shaikh China Sourcing — Admin Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -222,60 +222,14 @@ td .stagechip{
 <header class="topbar">
   <div class="brand">
     <div class="display">SHAIKH<b>SOURCING</b></div>
-    <small>Order Tracker</small>
+    <small>Admin Dashboard</small>
   </div>
-  <nav class="nav">
-    <button id="nav-home" onclick="go('home')" class="active">Home</button>
-    <button id="nav-track" onclick="go('track')">My orders</button>
-    <button id="nav-admin" onclick="go('admin')">Admin</button>
-  </nav>
 </header>
 
 <main>
 
-  <!-- HOME -->
-  <section id="view-home" class="view on">
-    <div class="hero">
-      <div class="eyebrow">Yiwu &amp; Guangzhou → Pakistan, the Gulf &amp; beyond</div>
-      <h1>Follow your order,<br><span>every step of the way</span></h1>
-      <p>From first quote to final delivery — live progress on your sourcing order, updated by our team at every stage.</p>
-    </div>
-    <div class="home-cards">
-      <button class="home-card" onclick="go('track')">
-        <h2>I'm a customer</h2>
-        <p>Enter the tracking number we shared with you to see your order's current stage, progress, and estimated delivery.</p>
-        <span class="tag">Track my order →</span>
-      </button>
-      <button class="home-card" onclick="go('admin')">
-        <h2>I'm the team</h2>
-        <p>Manage all customer orders in one place — update stages, progress, ETAs, and post updates customers can see.</p>
-        <span class="tag">Open admin →</span>
-      </button>
-    </div>
-  </section>
-
-  <!-- TRACK / CUSTOMER PORTAL -->
-  <section id="view-track" class="view">
-    <div id="cust-login" class="login-box">
-      <h2>Customer login</h2>
-      <p>Use the email &amp; password we sent you to view your orders.</p>
-      <input id="cust-email" type="email" placeholder="you@company.com" style="letter-spacing:normal; text-align:left; font-size:15px">
-      <input id="cust-pass" type="password" placeholder="Password" style="letter-spacing:normal; text-align:left; font-size:15px"
-             onkeydown="if(event.key==='Enter')custLogin()">
-      <button class="btn" style="width:100%" onclick="custLogin()">Sign in</button>
-      <p class="err" id="cust-err" style="margin-top:12px">Wrong email or password. Message us if you need it resent.</p>
-    </div>
-    <div id="cust-dashboard" style="display:none">
-      <div class="admin-head">
-        <h1 id="cust-greeting">My orders</h1>
-        <button class="btn ghost sm" onclick="custLogout()">Sign out</button>
-      </div>
-      <div id="cust-order-list"></div>
-    </div>
-  </section>
-
   <!-- ADMIN -->
-  <section id="view-admin" class="view">
+  <section id="view-admin" class="view on">
     <div id="admin-login" class="login-box">
       <h2>Admin access</h2>
       <p>Sign in with your admin email and password.</p>
@@ -449,108 +403,23 @@ async function loadCustomers(){
 }
 function customerName(id){ return customers.find(c=>c.id===id)?.name || 'Unknown customer'; }
 
-/* ================= nav ================= */
-function go(view){
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
-  document.getElementById('view-'+view).classList.add('on');
-  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
-  document.getElementById('nav-'+view).classList.add('active');
-  if(view==='admin' && unlocked) renderAdmin();
-  if(view==='track' && custUnlocked) renderCustDashboard();
-  window.scrollTo({top:0});
-}
-
-/* ================= customer login + dashboard ================= */
-async function custLogin(){
-  if(NEEDS_SETUP){ await enterCustDashboard(); return; }
-  const email = document.getElementById('cust-email').value.trim();
-  const password = document.getElementById('cust-pass').value;
-  const {error} = await sb.auth.signInWithPassword({email, password});
-  if(error){ document.getElementById('cust-err').style.display='block'; return; }
-  document.getElementById('cust-err').style.display='none';
-  await enterCustDashboard();
-}
-async function custLogout(){
-  if(!NEEDS_SETUP) await sb.auth.signOut();
-  custUnlocked = false;
-  document.getElementById('cust-login').style.display='block';
-  document.getElementById('cust-dashboard').style.display='none';
-}
-async function enterCustDashboard(){
-  custUnlocked = true;
-  document.getElementById('cust-login').style.display='none';
-  document.getElementById('cust-dashboard').style.display='block';
-  await loadCustomers(); // RLS returns just this customer's own row
-  await loadOrders();    // RLS returns just this customer's own orders
-  renderCustDashboard();
-}
-function renderCustDashboard(){
-  const me = customers[0];
-  document.getElementById('cust-greeting').textContent = me ? `Welcome, ${me.name}` : 'My orders';
-  const list = document.getElementById('cust-order-list');
-  if(!orders.length){ list.innerHTML = `<p class="hint" style="text-align:left">No orders yet — nothing to show here so far.</p>`; return; }
-  list.innerHTML = orders.slice().sort((a,b)=> b.pct - a.pct === 0 ? 0 : (a.pct===100)-(b.pct===100)).map(o=>orderCard(o)).join('<div style="height:22px"></div>');
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    list.querySelectorAll('.order-card').forEach((card,i)=>{
-      const o = orders[i];
-      const f = card.querySelector('.route-fill'), s = card.querySelector('.route-ship');
-      if(f){ f.style.width = o.pct+'%'; s.style.left = o.pct+'%'; }
-    });
-  }));
-}
-
-function shipSVG(){
-  return `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <path d="M3 15h18l-1.8 4.2c-.2.5-.7.8-1.2.8H6c-.5 0-1-.3-1.2-.8L3 15Z" fill="#de2910"/>
-    <path d="M6 15v-3h12v3" stroke="#ff6a00" stroke-width="1.6"/>
-    <path d="M9 12V8h6v4" stroke="#0a0a0a" stroke-width="1.6"/>
-    <path d="M12 8V5" stroke="#0a0a0a" stroke-width="1.6"/>
-  </svg>`;
-}
-
-function orderCard(o){
-  const idx = STAGES.findIndex(s=>s.name===o.stage);
-  const done = o.pct>=100;
-  const stops = STAGES.map((s,i)=>`
-    <div class="stop ${i<idx?'past':''} ${i===idx?'now':''}"><span>${s.name}</span></div>`).join('');
-  const updates = (o.updates||[]).slice().reverse().map(u=>`
-    <div class="update"><time>${fmtDate(u.t)}</time><div>${esc(u.msg)}</div></div>`).join('')
-    || `<div class="update"><div style="color:var(--ink-dim)">No updates posted yet.</div></div>`;
-  return `
-  <div class="order-card">
-    <div class="order-head">
-      <div>
-        <h2>${esc(o.product)}</h2>
-        <div class="tn">${o.tn} &nbsp;·&nbsp; ${esc(customerName(o.customer_id))}</div>
-      </div>
-      <span class="status-pill ${done?'done':''}">${done?'✓ Delivered':'Current stage: '+o.stage}</span>
-    </div>
-    <div class="route">
-      <div class="route-line">
-        <div class="route-fill" style="width:0%"></div>
-        <div class="route-ship" style="left:0%">${shipSVG()}</div>
-      </div>
-      <div class="route-stops">${stops}</div>
-    </div>
-    <div class="meta-grid">
-      <div class="meta"><label>Progress</label><div class="big">${o.pct}%</div></div>
-      <div class="meta"><label>Current stage</label><div>${o.stage}</div></div>
-      <div class="meta"><label>Estimated ${done?'delivered':'completion'}</label><div>${fmtDate(o.eta)||'—'}</div></div>
-    </div>
-    <div class="updates">
-      <h3>Updates from our team</h3>
-      ${updates}
-    </div>
-  </div>`;
-}
-
 /* ================= admin ================= */
 async function doLogin(){
   if(NEEDS_SETUP){ await enterAdmin(); return; }
   const email = document.getElementById('admin-email').value.trim();
   const password = document.getElementById('admin-pass').value;
-  const {error} = await sb.auth.signInWithPassword({email, password});
+  const {data, error} = await sb.auth.signInWithPassword({email, password});
   if(error){ toast('Login failed — check email/password'); return; }
+  const {data: staffRow, error: staffError} = await sb
+    .from('staff')
+    .select('user_id')
+    .eq('user_id', data.user.id)
+    .maybeSingle();
+  if(staffError || !staffRow){
+    await sb.auth.signOut();
+    toast('Access denied — this account is not an administrator');
+    return;
+  }
   await enterAdmin();
 }
 async function doLogout(){
@@ -573,7 +442,7 @@ async function checkExistingSession(){
   if(!session) return;
   const {data: staffRow} = await sb.from('staff').select('user_id').eq('user_id', session.user.id).maybeSingle();
   if(staffRow) await enterAdmin();
-  else await enterCustDashboard();
+  else await sb.auth.signOut();
 }
 
 function renderAdmin(){
