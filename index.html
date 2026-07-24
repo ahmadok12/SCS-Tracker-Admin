@@ -206,6 +206,17 @@ td .stagechip{
   padding:11px 13px; color:var(--ink); font-size:15px;
 }
 .field textarea{resize:vertical; min-height:70px}
+.order-update-history{
+  background:var(--panel); border:1px solid var(--line); border-radius:12px;
+  max-height:220px; overflow-y:auto; padding:4px 14px;
+}
+.order-update-history .update{align-items:flex-start}
+.order-update-history-empty{color:var(--muted); font-size:14px; padding:14px 0}
+.new-update-box{
+  grid-column:1/-1; display:grid; grid-template-columns:170px 1fr; gap:14px;
+  background:#fff7ed; border:1px solid #fed7aa; border-radius:12px; padding:14px;
+}
+@media(max-width:560px){.new-update-box{grid-template-columns:1fr}}
 .modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:22px}
 .danger{color:var(--red-dark); background:none; border:none; font-size:14px; font-weight:700; margin-right:auto}
 .danger:hover{text-decoration:underline}
@@ -333,8 +344,17 @@ td .stagechip{
       </div>
       <div class="field"><label>Completion %</label><input id="f-pct" type="number" min="0" max="100"></div>
       <div class="field"><label>Estimated completion</label><input id="f-eta" type="date"></div>
-      <div class="field full"><label>Post an update (visible to customer)</label>
-        <textarea id="f-update" placeholder="e.g. Sample approved, mass production started at factory."></textarea>
+      <div class="field full" id="order-update-history-wrap">
+        <label>Previous customer updates</label>
+        <div class="order-update-history" id="order-update-history"></div>
+      </div>
+      <div class="new-update-box">
+        <div class="field"><label>Update date</label>
+          <input id="f-update-date" type="date">
+        </div>
+        <div class="field"><label>Add a new update (visible to customer)</label>
+          <textarea id="f-update" placeholder="e.g. Sample approved, mass production started at factory."></textarea>
+        </div>
       </div>
     </div>
     <div class="modal-actions">
@@ -1057,8 +1077,27 @@ function openForm(id){
   sel.value = o?.stage||'Inquiry';
   document.getElementById('f-pct').value = o?.pct ?? 5;
   document.getElementById('f-eta').value = o?.eta||'';
+  document.getElementById('f-update-date').value = todayInputDate();
   document.getElementById('f-update').value = '';
+  renderOrderUpdateHistory(o?.updates || []);
   document.getElementById('modal-bg').classList.add('on');
+}
+function renderOrderUpdateHistory(updates){
+  const wrap = document.getElementById('order-update-history-wrap');
+  const history = document.getElementById('order-update-history');
+  wrap.style.display = editingId ? 'block' : 'none';
+  if(!editingId) {
+    history.innerHTML = '';
+    return;
+  }
+  const items = Array.isArray(updates) ? updates.slice() : [];
+  history.innerHTML = items.length
+    ? items.reverse().map(u=>`
+        <div class="update">
+          <time>${esc(fmtDate(u?.t) || 'No date')}</time>
+          <div>${esc(u?.msg || '')}</div>
+        </div>`).join('')
+    : `<div class="order-update-history-empty">No updates have been posted for this order yet.</div>`;
 }
 function closeForm(){ document.getElementById('modal-bg').classList.remove('on'); }
 function stagePct(){
@@ -1076,9 +1115,16 @@ async function saveOrder(){
   if(!customer_id || !product){ toast('Pick a customer and enter a product first'); return; }
   const pct = Math.max(0, Math.min(100, parseInt(document.getElementById('f-pct').value||0)));
   const upd = document.getElementById('f-update').value.trim();
+  const updateDate = document.getElementById('f-update-date').value;
+  if(upd && !updateDate){ toast('Choose a date for the new customer update'); return; }
   const existing = editingId ? orders.find(x=>x.id===editingId) : null;
-  const updates = existing ? [...existing.updates] : [];
-  if(upd) updates.push({t:new Date().toISOString().slice(0,10), msg:upd});
+  const updates = existing ? [...(existing.updates||[])] : [];
+  const shouldEmailCustomer = Boolean(existing && (
+    existing.stage !== document.getElementById('f-stage').value ||
+    Number(existing.pct) !== pct ||
+    upd
+  ));
+  if(upd) updates.push({t:updateDate, msg:upd});
 
   const record = {
     customer_id,
@@ -1090,24 +1136,50 @@ async function saveOrder(){
     updates,
   };
 
+  let savedId = editingId || null;
   if(NEEDS_SETUP){
     if(existing) Object.assign(existing, record);
-    else orders.push({id:crypto.randomUUID(), ...record});
+    else {
+      savedId = crypto.randomUUID();
+      orders.push({id:savedId, ...record});
+    }
   } else if(editingId){
     const {error} = await sb.from('orders').update(record).eq('id', editingId);
     if(error){ toast('Save failed: '+error.message); return; }
   } else {
-    const {error} = await sb.from('orders').insert(record);
+    const {data:created, error} = await sb.from('orders').insert(record).select('id').single();
     if(error){ toast('Save failed: '+error.message); return; }
+    savedId = created.id;
   }
 
-  const savedId = editingId || record.id || null;
   await logActivity(editingId?'updated':'created','order',savedId,record.tn,
     `${customerName(customer_id)} — ${record.product}; stage ${record.stage}; progress ${record.pct}%`);
+  let emailResult = null;
+  if(shouldEmailCustomer && !NEEDS_SETUP){
+    emailResult = await sendOrderStatusEmail(savedId);
+  }
   await loadOrders();
   closeForm();
   renderAdmin();
-  toast(editingId? 'Order updated':'Order created');
+  if(emailResult?.ok) toast('Order updated — customer email sent');
+  else if(emailResult && !emailResult.ok) toast('Order updated, but email failed: '+emailResult.message);
+  else toast(editingId? 'Order updated':'Order created');
+}
+
+async function sendOrderStatusEmail(orderId){
+  try {
+    const {data:{session}} = await sb.auth.getSession();
+    const {data,error} = await sb.functions.invoke('notify-customer',{
+      body:{order_id:orderId},
+      headers:{Authorization:`Bearer ${session.access_token}`}
+    });
+    if(error || data?.error){
+      return {ok:false,message:await functionErrorMessage(error,data)};
+    }
+    return {ok:true};
+  } catch(error){
+    return {ok:false,message:error?.message||'Unknown email error'};
+  }
 }
 async function deleteOrder(){
   if(!confirm('Delete this order? The customer will no longer see it in their dashboard.')) return;
@@ -1132,6 +1204,11 @@ function fmtDate(d){
   const dt = new Date(d+'T00:00:00');
   if(isNaN(dt)) return d;
   return dt.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+}
+function todayInputDate(){
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset()*60000);
+  return local.toISOString().slice(0,10);
 }
 let toastTimer;
 function toast(msg){
