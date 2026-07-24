@@ -249,6 +249,14 @@ td .stagechip{
 }
 .order-update-history .update{align-items:flex-start}
 .order-update-history-empty{color:var(--muted); font-size:14px; padding:14px 0}
+.private-note-history{background:#fffbeb;border-color:#fde68a}
+.private-note-history .update time{color:#92400e}
+.private-label{display:inline-flex;align-items:center;gap:5px}
+.private-badge{display:inline-block;background:#111827;color:#fff;border-radius:999px;padding:2px 7px;font-size:9px;letter-spacing:.08em}
+.admin-note-entry{grid-column:1/-1;border-top:1px solid #fed7aa;padding-top:14px}
+.admin-note-entry small{display:block;color:#92400e;font-size:11px;margin-top:6px}
+.private-notes-panel{margin-top:24px;background:#fffbeb;border:1px solid #fde68a;border-radius:14px;padding:16px}
+.private-notes-panel h3{font-size:17px;margin-bottom:8px;color:#78350f}
 .new-update-box{
   grid-column:1/-1; display:grid; grid-template-columns:170px 1fr; gap:14px;
   background:#fff7ed; border:1px solid #fed7aa; border-radius:12px; padding:14px;
@@ -463,12 +471,21 @@ td .stagechip{
         <label>Previous customer updates</label>
         <div class="order-update-history" id="order-update-history"></div>
       </div>
+      <div class="field full" id="admin-note-history-wrap">
+        <label class="private-label">Previous admin notes <span class="private-badge">Private</span></label>
+        <div class="order-update-history private-note-history" id="admin-note-history"></div>
+      </div>
       <div class="new-update-box">
-        <div class="field"><label>Update date</label>
+        <div class="field"><label>Entry date</label>
           <input id="f-update-date" type="date">
         </div>
         <div class="field"><label>Add a new update (visible to customer)</label>
           <textarea id="f-update" placeholder="e.g. Sample approved, mass production started at factory."></textarea>
+        </div>
+        <div class="field admin-note-entry">
+          <label class="private-label">Add an admin-only note <span class="private-badge">Private</span></label>
+          <textarea id="f-admin-note" placeholder="e.g. Supplier requested revised payment terms. Do not show this to the customer."></textarea>
+          <small>Only active staff can access this note. It will not appear in the customer portal or customer email.</small>
         </div>
       </div>
     </div>
@@ -664,6 +681,7 @@ let editingStaffId = null;
 let passwordStaffId = null;
 let orderFilter = {stage:'', customerId:'', category:''};
 let adminPage = 'dashboard';
+let currentAdminNotes = [];
 
 function currentRole(){ return currentStaff?.role || (NEEDS_SETUP ? 'owner' : 'manager'); }
 function isOwner(){ return currentRole()==='owner'; }
@@ -948,9 +966,10 @@ function shipSVG(){
     <path d="M12 8V5" stroke="#0a0a0a" stroke-width="1.6"/>
   </svg>`;
 }
-function viewOrder(id){
+async function viewOrder(id){
   const o = orders.find(x=>x.id===id);
   if(!o){ toast('Order could not be found'); return; }
+  const adminNotes = await loadOrderAdminNotes(id);
   const routeStages = stagesForCategory(orderCategory(o));
   const idx = routeStages.findIndex(s=>s.name===o.stage);
   const done = Number(o.pct)>=100;
@@ -988,6 +1007,10 @@ function viewOrder(id){
       <div class="updates">
         <h3>Updates from our team</h3>
         ${updates}
+      </div>
+      <div class="private-notes-panel">
+        <h3>Admin-only notes <span class="private-badge">Private</span></h3>
+        ${adminNotesHtml(adminNotes)}
       </div>
     </div>`;
   document.getElementById('view-order-modal-bg').classList.add('on');
@@ -1353,7 +1376,7 @@ async function functionErrorMessage(error,data){
 }
 
 /* ---- order form ---- */
-function openForm(id){
+async function openForm(id){
   editingId = id||null;
   const categorySel = document.getElementById('f-category');
   categorySel.innerHTML = ORDER_CATEGORIES.map(category=>`<option>${category}</option>`).join('');
@@ -1377,7 +1400,10 @@ function openForm(id){
   document.getElementById('f-eta').value = o?.eta||'';
   document.getElementById('f-update-date').value = todayInputDate();
   document.getElementById('f-update').value = '';
+  document.getElementById('f-admin-note').value = '';
   renderOrderUpdateHistory(o?.updates || []);
+  currentAdminNotes = o ? await loadOrderAdminNotes(o.id) : [];
+  renderAdminNoteHistory(currentAdminNotes);
   document.getElementById('modal-bg').classList.add('on');
 }
 function renderOrderUpdateHistory(updates){
@@ -1396,6 +1422,42 @@ function renderOrderUpdateHistory(updates){
           <div>${esc(u?.msg || '')}</div>
         </div>`).join('')
     : `<div class="order-update-history-empty">No updates have been posted for this order yet.</div>`;
+}
+async function loadOrderAdminNotes(orderId){
+  if(!orderId) return [];
+  if(NEEDS_SETUP){
+    return orders.find(order=>order.id===orderId)?._adminNotes || [];
+  }
+  const {data,error} = await sb
+    .from('order_admin_notes')
+    .select('*')
+    .eq('order_id',orderId)
+    .order('note_date',{ascending:false})
+    .order('created_at',{ascending:false});
+  if(error){
+    toast('Could not load admin-only notes: '+error.message);
+    return [];
+  }
+  return data || [];
+}
+function adminNotesHtml(notes){
+  if(!notes.length){
+    return `<div class="order-update-history-empty">No admin-only notes have been added yet.</div>`;
+  }
+  return notes.map(note=>{
+    const author = staff.find(user=>user.user_id===note.created_by);
+    const authorName = author?.name || author?.email || 'Staff user';
+    return `
+      <div class="update">
+        <time>${esc(fmtDate(note.note_date) || 'No date')}</time>
+        <div>${esc(note.note)}<div style="color:#92400e;font-size:11px;margin-top:4px">Added by ${esc(authorName)}</div></div>
+      </div>`;
+  }).join('');
+}
+function renderAdminNoteHistory(notes){
+  const wrap = document.getElementById('admin-note-history-wrap');
+  wrap.style.display = editingId ? 'block' : 'none';
+  document.getElementById('admin-note-history').innerHTML = adminNotesHtml(notes);
 }
 function closeForm(){ document.getElementById('modal-bg').classList.remove('on'); }
 function populateStageOptions(preferredStage){
@@ -1429,8 +1491,9 @@ async function saveOrder(){
   if(!customer_id || !product){ toast('Pick a customer and enter a product first'); return; }
   const pct = Math.max(0, Math.min(100, parseInt(document.getElementById('f-pct').value||0)));
   const upd = document.getElementById('f-update').value.trim();
+  const adminNote = document.getElementById('f-admin-note').value.trim();
   const updateDate = document.getElementById('f-update-date').value;
-  if(upd && !updateDate){ toast('Choose a date for the new customer update'); return; }
+  if((upd || adminNote) && !updateDate){ toast('Choose a date for the new entry'); return; }
   const existing = editingId ? orders.find(x=>x.id===editingId) : null;
   const updates = existing ? [...(existing.updates||[])] : [];
   const shouldEmailCustomer = Boolean(existing && (
@@ -1467,17 +1530,41 @@ async function saveOrder(){
     savedId = created.id;
   }
 
+  const warnings = [];
+  if(adminNote){
+    if(NEEDS_SETUP){
+      const savedOrder = orders.find(order=>order.id===savedId);
+      savedOrder._adminNotes = savedOrder._adminNotes || [];
+      savedOrder._adminNotes.unshift({
+        id:crypto.randomUUID(),
+        order_id:savedId,
+        note:adminNote,
+        note_date:updateDate,
+        created_by:currentStaff?.user_id || 'demo',
+        created_at:new Date().toISOString()
+      });
+    } else {
+      const {error:noteError} = await sb.from('order_admin_notes').insert({
+        order_id:savedId,
+        note:adminNote,
+        note_date:updateDate
+      });
+      if(noteError) warnings.push('private note failed: '+noteError.message);
+    }
+  }
+
   await logActivity(editingId?'updated':'created','order',savedId,record.tn,
     `${customerName(customer_id)} — ${record.product}; category ${record.category}; stage ${record.stage}; progress ${record.pct}%`);
   let emailResult = null;
   if(shouldEmailCustomer && !NEEDS_SETUP){
     emailResult = await sendOrderStatusEmail(savedId);
+    if(emailResult && !emailResult.ok) warnings.push('customer email failed: '+emailResult.message);
   }
   await loadOrders();
   closeForm();
   renderAdmin();
-  if(emailResult?.ok) toast('Order updated — customer email sent');
-  else if(emailResult && !emailResult.ok) toast('Order updated, but email failed: '+emailResult.message);
+  if(warnings.length) toast('Order saved, but '+warnings.join('; '));
+  else if(emailResult?.ok) toast('Order updated — customer email sent');
   else toast(editingId? 'Order updated':'Order created');
 }
 
