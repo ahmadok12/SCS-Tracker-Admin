@@ -1,153 +1,874 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shaikh China Sourcing — Admin Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0a0a0a; --muted:#5d6470; --red:#de2910; --red-dark:#b91c0c;
+  --orange:#ff6a00; --cream:#fff7ed; --line:#e5e7eb;
+  --card:#ffffff; --panel:#fbfaf8; --ok:#1a9b5c; --ok-soft:#e6f7ee;
+  --radius:20px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Inter',ui-sans-serif,system-ui,sans-serif; background:#fff; color:var(--ink);
+  min-height:100vh; line-height:1.5; letter-spacing:-.01em;
+}
+body::before{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:-1;
+  background-image:linear-gradient(90deg, #de29100b 1px, transparent 1px), linear-gradient(#de29100b 1px, transparent 1px);
+  background-size:44px 44px;
+}
+h1,h2,h3,.display{font-family:'Inter',sans-serif; letter-spacing:-.05em; font-weight:900}
+button{font-family:inherit; cursor:pointer}
+input,select,textarea{font-family:inherit}
+a{color:var(--red)}
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+/* ---------- shell ---------- */
+.topbar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 24px; border-bottom:1px solid var(--line);
+  position:sticky; top:0; background:#ffffffc7; -webkit-backdrop-filter:blur(20px) saturate(145%); backdrop-filter:blur(20px) saturate(145%); z-index:50;
+}
+.brand{display:flex; align-items:center; gap:12px}
+.brand-logo{width:46px; height:46px; object-fit:contain; border-radius:10px; background:transparent}
+.brand-copy{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
+.brand .display{font-size:22px; letter-spacing:-.04em}
+.brand .display b{color:var(--red); font-weight:900}
+.brand small{color:var(--muted); font-size:11px; letter-spacing:.14em; text-transform:uppercase; font-weight:700}
+.nav{display:flex; gap:8px}
+.nav button{
+  background:transparent; border:1px solid var(--line); color:var(--muted);
+  padding:9px 18px; border-radius:999px; font-size:13px; font-weight:700; transition:.18s;
+}
+.nav button:hover{color:var(--red); border-color:#de291055}
+.nav button.active{background:var(--ink); border-color:var(--ink); color:#fff}
+.nav button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible{
+  outline:2px solid var(--orange); outline-offset:2px;
+}
+main{max-width:1080px; margin:0 auto; padding:36px 24px 80px; position:relative}
+.view{display:none}
+.view.on{display:block; animation:fade .35s ease}
+@keyframes fade{from{opacity:0; transform:translateY(8px)}to{opacity:1; transform:none}}
+@media (prefers-reduced-motion:reduce){ *{animation:none!important; transition:none!important} }
+
+/* ---------- home ---------- */
+.hero{text-align:center; padding:48px 0 20px}
+.hero .eyebrow{
+  color:var(--red-dark); letter-spacing:.02em; text-transform:none; font-size:12px; font-weight:750;
+  background:#fff7ede6; border:1px solid #de291033; border-radius:999px; padding:7px 14px; display:inline-block;
+}
+.hero h1{font-size:clamp(40px,7vw,64px); line-height:.98; margin:18px 0 8px}
+.hero h1 span{color:var(--red)}
+.hero p{color:var(--muted); max-width:520px; margin:0 auto; font-weight:500}
+.home-cards{display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:36px}
+@media(max-width:700px){.home-cards{grid-template-columns:1fr}}
+.home-card{
+  background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+  padding:28px; text-align:left; transition:.2s; color:var(--ink); box-shadow:0 2px 10px #0a0a0a08;
+}
+.home-card:hover{border-color:var(--red); transform:translateY(-2px); box-shadow:0 16px 30px #de291014}
+.home-card h2{font-size:24px; margin-bottom:6px; letter-spacing:-.03em}
+.home-card p{color:var(--muted); font-size:14px; font-weight:500}
+.home-card .tag{display:inline-block; margin-top:14px; font-size:12px; font-weight:750; letter-spacing:.04em; color:var(--red)}
+
+/* ---------- track ---------- */
+.track-box{max-width:560px; margin:0 auto}
+.search-row{display:flex; gap:10px; margin-top:18px}
+.search-row input{
+  flex:1; background:#fff; border:1px solid var(--line); border-radius:999px;
+  padding:14px 18px; color:var(--ink); font-size:16px; letter-spacing:.02em;
+}
+.search-row input::placeholder{color:#9aa0aa}
+.btn{
+  background:var(--ink); color:#fff; border:none; border-radius:999px;
+  padding:14px 24px; font-weight:750; font-size:14px; transition:.18s;
+}
+.btn:hover{background:var(--red); transform:translateY(-1px)}
+.btn.ghost{background:#fffc; border:1px solid var(--line); color:var(--ink)}
+.btn.ghost:hover{border-color:var(--red); color:var(--red); background:#fff; transform:none}
+.btn.gold{background:linear-gradient(120deg,var(--orange),var(--red)); color:#fff}
+.btn.gold:hover{filter:brightness(1.08); background:linear-gradient(120deg,var(--orange),var(--red))}
+.btn.sm{padding:9px 16px; font-size:12.5px; border-radius:999px}
+.hint{color:var(--muted); font-size:13px; margin-top:10px; text-align:center}
+.err{color:var(--red-dark); font-size:14px; margin-top:12px; text-align:center; display:none}
+
+/* ---------- order card / route ---------- */
+.order-card{
+  background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+  padding:28px; margin-top:28px; box-shadow:0 2px 10px #0a0a0a08;
+}
+.order-head{display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap}
+.order-head h2{font-size:26px; letter-spacing:-.03em}
+.order-head .tn{color:var(--muted); font-size:13px; letter-spacing:.03em; font-weight:600; margin-top:4px}
+.status-pill{
+  padding:7px 15px; border-radius:999px; font-size:12.5px; font-weight:750;
+  background:#fff0eb; color:var(--red-dark); border:1px solid #de291033;
+  white-space:nowrap;
+}
+.status-pill.done{background:var(--ok-soft); color:var(--ok); border-color:#1a9b5c33}
+
+.route{margin:34px 0 8px; position:relative; padding:26px 6px 0}
+.route-line{position:relative; height:4px; background:#eef0f2; border-radius:99px}
+.route-fill{
+  position:absolute; left:0; top:0; height:100%; border-radius:99px;
+  background:linear-gradient(90deg, var(--orange), var(--red)); transition:width 1s ease;
+}
+.route-ship{
+  position:absolute; top:-15px; transform:translateX(-50%); transition:left 1s ease;
+  font-size:0; line-height:0;
+}
+.route-ship svg{width:34px; height:34px; display:block; filter:drop-shadow(0 3px 6px rgba(10,10,10,.25))}
+.route-stops{display:flex; justify-content:space-between; margin-top:14px}
+.stop{flex:1; text-align:center; position:relative}
+.stop::before{
+  content:""; width:10px; height:10px; border-radius:50%; background:#eef0f2;
+  border:2px solid var(--line); display:block; margin:-25px auto 12px;
+}
+.stop.past::before{background:var(--orange); border-color:var(--orange)}
+.stop.now::before{background:var(--red); border-color:var(--red); box-shadow:0 0 0 5px #de291026}
+.stop span{font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:#9aa0aa; font-weight:700}
+.stop.past span,.stop.now span{color:var(--ink)}
+@media(max-width:640px){ .stop span{font-size:9px} }
+
+.meta-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-top:26px}
+.meta{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px}
+.meta label{display:block; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-weight:750; margin-bottom:4px}
+.meta div{font-size:16px; font-weight:700}
+.meta .big{font-size:28px; color:var(--red); letter-spacing:-.03em}
+
+.updates{margin-top:26px}
+.updates h3{font-size:17px; color:var(--ink); margin-bottom:12px; letter-spacing:-.02em}
+.update{
+  display:flex; gap:14px; padding:12px 0; border-bottom:1px dashed var(--line); font-size:14px; font-weight:500;
+}
+.update:last-child{border-bottom:none}
+.update time{color:var(--muted); white-space:nowrap; font-size:13px; min-width:92px; font-weight:600}
+
+/* ---------- admin ---------- */
+.admin-head{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:22px}
+.admin-head h1{font-size:32px; letter-spacing:-.04em}
+.stat-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:26px}
+.stat{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; box-shadow:0 2px 10px #0a0a0a08}
+.stat b{font-size:30px; display:block; color:var(--red); letter-spacing:-.03em}
+.stat span{font-size:11px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase; font-weight:700}
+
+.table-wrap{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); overflow-x:auto; box-shadow:0 2px 10px #0a0a0a08}
+table{width:100%; border-collapse:collapse; min-width:760px}
+th{
+  text-align:left; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);
+  padding:14px 16px; border-bottom:1px solid var(--line); font-weight:750;
+}
+td{padding:14px 16px; border-bottom:1px solid var(--line); font-size:14px; vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr.row:hover td{background:#fff7ed80}
+.mini-bar{width:110px; height:8px; background:#eef0f2; border-radius:99px; overflow:hidden}
+.mini-fill{height:100%; background:linear-gradient(90deg,var(--orange),var(--red)); border-radius:99px}
+.pct{font-weight:750; color:var(--red-dark); font-size:13px; margin-left:8px}
+td .stagechip{
+  font-size:11.5px; font-weight:750; padding:5px 12px; border-radius:99px;
+  background:var(--panel); border:1px solid var(--line); white-space:nowrap;
+}
+.copy-tn{background:none; border:none; color:var(--red); font-size:13px; font-weight:700; padding:0}
+.copy-tn:hover{text-decoration:underline}
+.empty{padding:40px; text-align:center; color:var(--muted)}
+.section-head{display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin:30px 0 14px}
+.section-head h2{font-size:24px}
+.staff-chip{display:inline-flex; align-items:center; gap:7px; padding:6px 11px; border:1px solid var(--line); border-radius:999px; font-size:12px; font-weight:700; color:var(--muted)}
+.staff-dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.activity-filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.activity-filters select{background:#fff;border:1px solid var(--line);border-radius:999px;padding:9px 14px;font-weight:650;color:var(--ink)}
+.activity-detail{max-width:360px;white-space:normal;color:var(--muted);font-size:12px}
+
+/* ---------- modal / form ---------- */
+.modal-bg{
+  position:fixed; inset:0; background:rgba(10,10,10,.55); backdrop-filter:blur(4px);
+  display:none; align-items:flex-start; justify-content:center; z-index:100; padding:40px 16px; overflow-y:auto;
+}
+.modal-bg.on{display:flex}
+.modal{
+  background:#fff; border:1px solid var(--line); border-radius:var(--radius);
+  width:100%; max-width:640px; padding:28px; animation:fade .25s ease; box-shadow:0 30px 70px #0a0a0a2e;
+}
+.modal h2{font-size:24px; margin-bottom:18px; letter-spacing:-.03em}
+.fgrid{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+.fgrid .full{grid-column:1/-1}
+@media(max-width:560px){.fgrid{grid-template-columns:1fr}}
+.field label{display:block; font-size:11.5px; font-weight:750; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:6px}
+.field input,.field select,.field textarea{
+  width:100%; background:#fff; border:1px solid var(--line); border-radius:10px;
+  padding:11px 13px; color:var(--ink); font-size:15px;
+}
+.field textarea{resize:vertical; min-height:70px}
+.modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:22px}
+.danger{color:var(--red-dark); background:none; border:none; font-size:14px; font-weight:700; margin-right:auto}
+.danger:hover{text-decoration:underline}
+
+/* login */
+.login-box{max-width:380px; margin:60px auto; background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:32px; text-align:center; box-shadow:0 2px 10px #0a0a0a08}
+.login-box h2{font-size:26px; margin-bottom:6px; letter-spacing:-.03em}
+.login-box p{color:var(--muted); font-size:14px; margin-bottom:18px; font-weight:500}
+.login-box input{
+  width:100%; background:#fff; border:1px solid var(--line); border-radius:10px;
+  padding:13px; color:var(--ink); font-size:16px; text-align:center; letter-spacing:.15em; margin-bottom:14px;
+}
+.toast{
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px);
+  background:var(--ink); color:#fff; font-weight:700; padding:12px 22px; border-radius:99px;
+  transition:.3s; z-index:200; font-size:14px; opacity:0;
+}
+.toast.on{transform:translateX(-50%) translateY(0); opacity:1}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <img class="brand-logo" src="./logo.jpg" alt="Shaikh China Sourcing logo">
+    <div class="brand-copy">
+      <div class="display">SHAIKH CHINA <b>SOURCING</b></div>
+      <small>Admin Dashboard</small>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ADMIN -->
+  <section id="view-admin" class="view on">
+    <div id="admin-login" class="login-box">
+      <h2>Admin access</h2>
+      <p>Sign in with your admin email and password.</p>
+      <input id="admin-email" type="email" placeholder="you@shaikhchinasourcing.com" style="letter-spacing:normal; text-align:left; font-size:15px">
+      <input id="admin-pass" type="password" placeholder="Password" style="letter-spacing:normal; text-align:left; font-size:15px"
+             onkeydown="if(event.key==='Enter')doLogin()">
+      <button class="btn" style="width:100%" onclick="doLogin()">Sign in</button>
+    </div>
+
+    <div id="admin-panel" style="display:none">
+      <div class="admin-head">
+        <h1>All orders</h1>
+        <div style="display:flex; gap:10px">
+          <span class="staff-chip" id="signed-in-user"><span class="staff-dot"></span>Admin</span>
+          <button class="btn ghost sm" onclick="doLogout()">Sign out</button>
+          <button class="btn ghost sm" onclick="openCustomerForm()">+ New customer</button>
+          <button class="btn gold" onclick="openForm()">+ New order</button>
+        </div>
+      </div>
+      <div class="stat-row" id="stats"></div>
+      <div class="table-wrap" style="margin-bottom:22px">
+        <table>
+          <thead><tr><th>Customer</th><th>City</th><th>Email (username)</th><th></th></tr></thead>
+          <tbody id="customer-rows"></tbody>
+        </table>
+        <div class="empty" id="cust-empty-msg" style="display:none">No customers yet. Click “+ New customer” to add one.</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Customer</th><th>Product</th><th>Tracking #</th><th>Stage</th><th>Progress</th><th>ETA</th><th></th></tr>
+          </thead>
+          <tbody id="order-rows"></tbody>
+        </table>
+        <div class="empty" id="empty-msg" style="display:none">No orders yet. Click “+ New order” to add your first one.</div>
+      </div>
+
+      <div class="section-head">
+        <div>
+          <h2>Team &amp; activity</h2>
+          <p style="color:var(--muted);font-size:13px;margin-top:3px">Add admin users and see exactly who changed what.</p>
+        </div>
+        <button class="btn ghost sm" onclick="openStaffForm()">+ Add admin user</button>
+      </div>
+      <div class="table-wrap" style="margin-bottom:18px">
+        <table>
+          <thead><tr><th>Admin user</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+          <tbody id="staff-rows"></tbody>
+        </table>
+        <div class="empty" id="staff-empty-msg" style="display:none">Team management needs the Supabase staff fields and manage-staff function described in the setup notes.</div>
+      </div>
+      <div class="section-head" style="margin-top:18px">
+        <h2 style="font-size:20px">Changes log</h2>
+        <div class="activity-filters">
+          <select id="activity-user-filter" onchange="renderActivity()"><option value="">All users</option></select>
+          <button class="btn ghost sm" onclick="loadActivity().then(renderActivity)">Refresh</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date &amp; time</th><th>User</th><th>Action</th><th>Item</th><th>Details</th></tr></thead>
+          <tbody id="activity-rows"></tbody>
+        </table>
+        <div class="empty" id="activity-empty-msg">No recorded changes yet.</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ORDER FORM MODAL -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <h2 id="modal-title">New order</h2>
+    <div class="fgrid">
+      <div class="field full"><label>Customer</label>
+        <select id="f-customer-id"></select>
+      </div>
+      <div class="field full"><label>Product / order description</label><input id="f-product" placeholder="500 units LED desk lamps, custom logo"></div>
+      <div class="field"><label>Tracking number</label><input id="f-tn" placeholder="Auto-generated" readonly style="opacity:.7"></div>
+      <div class="field"><label>Current stage</label>
+        <select id="f-stage" onchange="stagePct()"></select>
+      </div>
+      <div class="field"><label>Completion %</label><input id="f-pct" type="number" min="0" max="100"></div>
+      <div class="field"><label>Estimated completion</label><input id="f-eta" type="date"></div>
+      <div class="field full"><label>Post an update (visible to customer)</label>
+        <textarea id="f-update" placeholder="e.g. Sample approved, mass production started at factory."></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="danger" id="btn-delete" style="display:none" onclick="deleteOrder()">Delete order</button>
+      <button class="btn ghost" onclick="closeForm()">Cancel</button>
+      <button class="btn" onclick="saveOrder()">Save order</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW CUSTOMER MODAL -->
+<div class="modal-bg" id="cust-modal-bg">
+  <div class="modal">
+    <h2>New customer</h2>
+    <p style="color:var(--ink-dim); font-size:14px; margin-bottom:16px">Creates a login for them and adds them to your customer list.</p>
+    <div class="fgrid">
+      <div class="field full"><label>Customer / company name</label><input id="nc-name" placeholder="Bilal Traders"></div>
+      <div class="field"><label>Email (their username)</label><input id="nc-email" type="email" placeholder="bilal@traders.com"></div>
+      <div class="field"><label>City</label><input id="nc-city" placeholder="Karachi"></div>
+    </div>
+    <div id="nc-result" style="display:none; margin-top:18px; background:var(--navy); border:1px solid var(--gold); border-radius:10px; padding:16px">
+      <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px">Share these with the customer (shown once):</div>
+      <div style="font-family:monospace; font-size:15px" id="nc-creds"></div>
+      <button class="btn gold sm" style="margin-top:10px" onclick="copyCreds()">Copy for WhatsApp</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeCustomerForm()">Close</button>
+      <button class="btn" id="nc-submit" onclick="createCustomer()">Create login</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW ADMIN USER MODAL -->
+<div class="modal-bg" id="staff-modal-bg">
+  <div class="modal">
+    <h2>Add admin user</h2>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:16px">Creates a separate staff login. Their changes will appear under their own name in the activity log.</p>
+    <div class="fgrid">
+      <div class="field"><label>Full name</label><input id="ns-name" placeholder="Team member name"></div>
+      <div class="field"><label>Email</label><input id="ns-email" type="email" placeholder="user@shaikhchinasourcing.com"></div>
+      <div class="field full"><label>Role</label>
+        <select id="ns-role">
+          <option value="admin">Admin — manage customers and orders</option>
+          <option value="viewer">Viewer — view dashboard and logs</option>
+        </select>
+      </div>
+    </div>
+    <div id="ns-result" style="display:none;margin-top:18px;background:var(--cream);border:1px solid #de291033;border-radius:10px;padding:16px">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:8px">New staff login (shown once):</div>
+      <div style="font-family:monospace;font-size:15px" id="ns-creds"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeStaffForm()">Close</button>
+      <button class="btn" id="ns-submit" onclick="createStaff()">Create admin login</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESET PASSWORD MODAL -->
+<div class="modal-bg" id="reset-modal-bg">
+  <div class="modal">
+    <h2 id="reset-title">Reset password</h2>
+    <p style="color:var(--ink-dim); font-size:14px; margin:6px 0 16px" id="reset-sub">This creates a new password and invalidates their old one.</p>
+    <div id="reset-result" style="display:none; background:var(--navy); border:1px solid var(--gold); border-radius:10px; padding:16px">
+      <div style="font-size:13px; color:var(--ink-dim); margin-bottom:8px">New login (shown once):</div>
+      <div style="font-family:monospace; font-size:15px" id="reset-creds"></div>
+      <button class="btn gold sm" style="margin-top:10px" onclick="copyResetCreds()">Copy for WhatsApp</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeResetModal()">Close</button>
+      <button class="btn" id="reset-submit" onclick="confirmReset()">Generate new password</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= data layer ================= */
+const STAGES = [
+  {name:'Inquiry',        pct:5},
+  {name:'Quote',          pct:15},
+  {name:'Payment',        pct:25},
+  {name:'Production',     pct:50},
+  {name:'Quality Check',  pct:70},
+  {name:'Shipping',       pct:85},
+  {name:'Customs',        pct:93},
+  {name:'Delivered',      pct:100},
+];
+// ===== Supabase config — fill these in from Settings → API in your Supabase project =====
+const SUPABASE_URL = 'https://eourkizstbgmrqkdwnjd.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_rEKWzv2DaUZHhHwBdCJKXg_9jEQkz6k';
+const NEEDS_SETUP = SUPABASE_URL.startsWith('YOUR_') || SUPABASE_ANON_KEY.startsWith('YOUR_');
+const sb = NEEDS_SETUP ? null : supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let orders = [];
+let customers = [];       // admin: every customer. customer login: just their own row.
+let editingId = null;
+let unlocked = false;     // admin session
+let custUnlocked = false; // customer session
+let currentStaff = null;
+let staff = [];
+let activityLogs = [];
+
+// demo data shown only if Supabase isn't configured yet, so the prototype still works
+const seed = () => {
+  const c1 = crypto.randomUUID(), c2 = crypto.randomUUID(), c3 = crypto.randomUUID();
+  customers = [
+    {id:c1, name:'Bilal Traders', email:'demo@bilaltraders.com', city:'Karachi'},
+    {id:c2, name:'Al Noor Electronics', email:'demo@alnoor.ae', city:'Dubai'},
+    {id:c3, name:'Madina Mart', email:'demo@madinamart.pk', city:'Lahore'},
+  ];
+  orders = [
+    {id:crypto.randomUUID(), customer_id:c1, tn:'SCS-2607-4821',
+     product:'500 × LED desk lamps, custom logo', stage:'Production', pct:55,
+     eta:'2026-08-20', updates:[
+       {t:'2026-07-02', msg:'Inquiry received and supplier shortlist prepared.'},
+       {t:'2026-07-08', msg:'Quote approved and 30% advance received.'},
+       {t:'2026-07-18', msg:'Sample approved — mass production started at factory.'}]},
+    {id:crypto.randomUUID(), customer_id:c2, tn:'SCS-2606-3390',
+     product:'1,200 × Bluetooth speakers', stage:'Shipping', pct:85,
+     eta:'2026-08-02', updates:[
+       {t:'2026-06-25', msg:'QC passed — 0 critical defects in AQL inspection.'},
+       {t:'2026-07-14', msg:'Container loaded at Guangzhou port, vessel departs 16 July.'}]},
+    {id:crypto.randomUUID(), customer_id:c3, tn:'SCS-2605-1177',
+     product:'300 × kitchen appliance sets', stage:'Delivered', pct:100,
+     eta:'2026-07-05', updates:[
+       {t:'2026-07-04', msg:'Cleared Karachi customs.'},
+       {t:'2026-07-05', msg:'Delivered to warehouse. Order complete — thank you!'}]},
+  ];
 };
 
-function json(body: Record<string, unknown>, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+async function loadOrders(){
+  if(NEEDS_SETUP) return; // seed() already filled orders
+  const {data, error} = await sb.from('orders').select('*').order('created_at');
+  if(error){ toast('Could not load orders: '+error.message); orders = []; return; }
+  orders = data;
+}
+async function loadCustomers(){
+  if(NEEDS_SETUP) return; // seed() already filled customers
+  const {data, error} = await sb.from('customers').select('*').order('name');
+  if(error){ toast('Could not load customers: '+error.message); customers = []; return; }
+  customers = data;
+}
+async function loadStaff(){
+  if(NEEDS_SETUP){
+    staff = [{user_id:'demo-admin', name:'Demo Administrator', email:'admin@shaikhchinasourcing.com', role:'owner', active:true}];
+    return;
+  }
+  const {data, error} = await sb.from('staff').select('*').order('name');
+  if(error){ staff = currentStaff ? [currentStaff] : []; return; }
+  staff = data || [];
+}
+async function loadActivity(){
+  if(NEEDS_SETUP) return;
+  const {data, error} = await sb.from('activity_logs').select('*').order('created_at',{ascending:false}).limit(250);
+  if(error){ activityLogs = []; return; }
+  activityLogs = data || [];
+}
+function customerName(id){ return customers.find(c=>c.id===id)?.name || 'Unknown customer'; }
+
+/* ================= admin ================= */
+async function doLogin(){
+  if(NEEDS_SETUP){ await enterAdmin(); return; }
+  const email = document.getElementById('admin-email').value.trim();
+  const password = document.getElementById('admin-pass').value;
+  const {data, error} = await sb.auth.signInWithPassword({email, password});
+  if(error){ toast('Login failed — check email/password'); return; }
+  const {data: staffRow, error: staffError} = await sb
+    .from('staff')
+    .select('*')
+    .eq('user_id', data.user.id)
+    .maybeSingle();
+  if(staffError || !staffRow){
+    await sb.auth.signOut();
+    toast('Access denied — this account is not an administrator');
+    return;
+  }
+  currentStaff = {...staffRow, email:staffRow.email || data.user.email};
+  await enterAdmin();
+}
+async function doLogout(){
+  if(!NEEDS_SETUP) await sb.auth.signOut();
+  unlocked = false;
+  currentStaff = null;
+  document.getElementById('admin-login').style.display='block';
+  document.getElementById('admin-panel').style.display='none';
+}
+async function enterAdmin(){
+  unlocked = true;
+  document.getElementById('admin-login').style.display='none';
+  document.getElementById('admin-panel').style.display='block';
+  await loadCustomers();
+  await loadOrders();
+  await loadStaff();
+  await loadActivity();
+  renderAdmin();
+}
+async function checkExistingSession(){
+  if(NEEDS_SETUP) return;
+  const {data:{session}} = await sb.auth.getSession();
+  if(!session) return;
+  const {data: staffRow} = await sb.from('staff').select('*').eq('user_id', session.user.id).maybeSingle();
+  if(staffRow){
+    currentStaff = {...staffRow, email:staffRow.email || session.user.email};
+    await enterAdmin();
+  }
+  else await sb.auth.signOut();
+}
+
+function renderAdmin(){
+  const tbody = document.getElementById('order-rows');
+  const active = orders.filter(o=>o.pct<100).length;
+  const shipping = orders.filter(o=>o.stage==='Shipping'||o.stage==='Customs').length;
+  const delivered = orders.filter(o=>o.pct>=100).length;
+  const signedIn = currentStaff?.name || currentStaff?.email || (NEEDS_SETUP ? 'Demo Administrator' : 'Admin');
+  document.getElementById('signed-in-user').innerHTML = `<span class="staff-dot"></span>${esc(signedIn)}`;
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><b>${orders.length}</b><span>Total orders</span></div>
+    <div class="stat"><b>${customers.length}</b><span>Customers</span></div>
+    <div class="stat"><b>${active}</b><span>In progress</span></div>
+    <div class="stat"><b>${shipping}</b><span>On the water</span></div>
+    <div class="stat"><b>${delivered}</b><span>Delivered</span></div>`;
+  document.getElementById('empty-msg').style.display = orders.length? 'none':'block';
+  tbody.innerHTML = orders.slice().sort((a,b)=>a.pct-b.pct).map(o=>{
+    const c = customers.find(c=>c.id===o.customer_id);
+    return `
+    <tr class="row">
+      <td><strong>${esc(c?.name||'Unknown')}</strong><br><span style="color:var(--ink-dim);font-size:12px">${esc(c?.city||'')}</span></td>
+      <td style="max-width:220px">${esc(o.product)}</td>
+      <td>${o.tn}</td>
+      <td><span class="stagechip">${o.stage}</span></td>
+      <td><div style="display:flex;align-items:center">
+        <div class="mini-bar"><div class="mini-fill" style="width:${o.pct}%"></div></div>
+        <span class="pct">${o.pct}%</span></div></td>
+      <td>${fmtDate(o.eta)||'—'}</td>
+      <td><button class="btn ghost sm" onclick="openForm('${o.id}')">Edit</button></td>
+    </tr>`;}).join('');
+
+  const custBody = document.getElementById('customer-rows');
+  document.getElementById('cust-empty-msg').style.display = customers.length? 'none':'block';
+  custBody.innerHTML = customers.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(c=>`
+    <tr class="row">
+      <td><strong>${esc(c.name)}</strong></td>
+      <td>${esc(c.city||'—')}</td>
+      <td style="font-size:13px; color:var(--ink-dim)">${esc(c.email)}</td>
+      <td><button class="btn ghost sm" onclick="openResetModal('${c.id}')">Reset password</button></td>
+    </tr>`).join('');
+  renderStaff();
+  renderActivity();
+}
+
+function renderStaff(){
+  const body = document.getElementById('staff-rows');
+  const empty = document.getElementById('staff-empty-msg');
+  empty.style.display = staff.length ? 'none' : 'block';
+  body.innerHTML = staff.map(s=>`
+    <tr class="row">
+      <td><strong>${esc(s.name || 'Staff user')}</strong></td>
+      <td>${esc(s.email || '—')}</td>
+      <td><span class="stagechip">${esc(s.role || 'admin')}</span></td>
+      <td>${s.active===false ? 'Disabled' : 'Active'}</td>
+    </tr>`).join('');
+  const filter = document.getElementById('activity-user-filter');
+  const selected = filter.value;
+  filter.innerHTML = `<option value="">All users</option>` + staff.map(s=>
+    `<option value="${esc(s.user_id)}">${esc(s.name || s.email || 'Staff user')}</option>`).join('');
+  filter.value = selected;
+}
+function renderActivity(){
+  const filter = document.getElementById('activity-user-filter')?.value || '';
+  const rows = filter ? activityLogs.filter(x=>x.user_id===filter) : activityLogs;
+  document.getElementById('activity-empty-msg').style.display = rows.length ? 'none' : 'block';
+  document.getElementById('activity-rows').innerHTML = rows.map(x=>`
+    <tr>
+      <td>${esc(new Date(x.created_at).toLocaleString('en-GB'))}</td>
+      <td><strong>${esc(x.user_name || x.user_email || 'Unknown user')}</strong></td>
+      <td>${esc(x.action || 'updated')}</td>
+      <td>${esc([x.entity_type,x.entity_label].filter(Boolean).join(': '))}</td>
+      <td class="activity-detail">${esc(x.details || '')}</td>
+    </tr>`).join('');
+}
+async function logActivity(action, entityType, entityId, entityLabel, details){
+  const entry = {
+    user_id: currentStaff?.user_id || 'demo-admin',
+    user_name: currentStaff?.name || 'Demo Administrator',
+    user_email: currentStaff?.email || 'admin@shaikhchinasourcing.com',
+    action, entity_type:entityType, entity_id:entityId || null,
+    entity_label:entityLabel || '', details:details || '',
+    created_at:new Date().toISOString()
+  };
+  if(NEEDS_SETUP){ activityLogs.unshift(entry); return; }
+  const {error} = await sb.from('activity_logs').insert(entry);
+  if(!error) activityLogs.unshift(entry);
+}
+
+function openStaffForm(){
+  document.getElementById('ns-name').value='';
+  document.getElementById('ns-email').value='';
+  document.getElementById('ns-role').value='admin';
+  document.getElementById('ns-result').style.display='none';
+  document.getElementById('ns-submit').style.display='inline-block';
+  document.getElementById('staff-modal-bg').classList.add('on');
+}
+function closeStaffForm(){
+  document.getElementById('staff-modal-bg').classList.remove('on');
+}
+async function createStaff(){
+  const name = document.getElementById('ns-name').value.trim();
+  const email = document.getElementById('ns-email').value.trim();
+  const role = document.getElementById('ns-role').value;
+  if(!name || !email){ toast('Name and email are required'); return; }
+  if(NEEDS_SETUP){
+    const user_id = crypto.randomUUID();
+    staff.push({user_id,name,email,role,active:true});
+    activityLogs.unshift({user_id:'demo-admin',user_name:'Demo Administrator',user_email:'admin@shaikhchinasourcing.com',action:'created',entity_type:'staff',entity_id:user_id,entity_label:name,details:`Added ${email} as ${role}`,created_at:new Date().toISOString()});
+    document.getElementById('ns-result').style.display='block';
+    document.getElementById('ns-creds').innerHTML=`Email: ${esc(email)}<br>Password: (demo mode)`;
+    document.getElementById('ns-submit').style.display='none';
+    renderStaff(); renderActivity();
+    return;
+  }
+  const {data:{session}} = await sb.auth.getSession();
+  const {data,error} = await sb.functions.invoke('manage-staff',{
+    body:{action:'create',name,email,role},
+    headers:{Authorization:`Bearer ${session.access_token}`}
   });
+  if(error || data?.error){ toast('Could not create admin user: '+(data?.error||error.message)); return; }
+  await logActivity('created','staff',data.user_id,name,`Added ${email} as ${role}`);
+  await loadStaff();
+  document.getElementById('ns-result').style.display='block';
+  document.getElementById('ns-creds').innerHTML=`Email: ${esc(email)}<br>Password: ${esc(data.password || 'Invitation sent')}`;
+  document.getElementById('ns-submit').style.display='none';
+  renderStaff(); renderActivity();
 }
 
-function generatePassword() {
-  const bytes = crypto.getRandomValues(new Uint8Array(18));
-  const randomPart = btoa(String.fromCharCode(...bytes))
-    .replaceAll("+", "A")
-    .replaceAll("/", "b")
-    .replaceAll("=", "");
-  return `Scs!${randomPart}`;
+/* ---- reset password ---- */
+let resettingId = null;
+function openResetModal(customerId){
+  resettingId = customerId;
+  const c = customers.find(x=>x.id===customerId);
+  document.getElementById('reset-title').textContent = `Reset password — ${c?.name||''}`;
+  document.getElementById('reset-result').style.display='none';
+  document.getElementById('reset-submit').style.display='inline-block';
+  document.getElementById('reset-modal-bg').classList.add('on');
+}
+function closeResetModal(){
+  document.getElementById('reset-modal-bg').classList.remove('on');
+  resettingId = null;
+}
+async function confirmReset(){
+  const c = customers.find(x=>x.id===resettingId);
+  if(!c) return;
+
+  if(NEEDS_SETUP){
+    document.getElementById('reset-result').style.display='block';
+    document.getElementById('reset-creds').innerHTML = `Email: ${esc(c.email)}<br>Password: (demo mode — no real login to reset)`;
+    document.getElementById('reset-submit').style.display='none';
+    return;
+  }
+
+  const {data:{session}} = await sb.auth.getSession();
+  const {data, error} = await sb.functions.invoke('create-customer', {
+    body:{action:'reset', customer_id: resettingId},
+    headers:{ Authorization:`Bearer ${session.access_token}` }
+  });
+  if(error || data?.error){ toast('Reset failed: '+(data?.error||error.message)); return; }
+  document.getElementById('reset-result').style.display='block';
+  document.getElementById('reset-creds').innerHTML = `Email: ${esc(data.email)}<br>Password: ${esc(data.password)}`;
+  document.getElementById('reset-submit').style.display='none';
+  await logActivity('reset password','customer',c.id,c.name,`Reset login password for ${c.email}`);
+  renderActivity();
+}
+function copyResetCreds(){
+  const text = document.getElementById('reset-creds').innerText.replace('\n',' / ');
+  const msg = `Assalam o Alaikum! Your Shaikh China Sourcing order tracking password has been reset — ${text}. Sign in any time to see your order status.`;
+  navigator.clipboard?.writeText(msg).then(()=>toast('Login message copied — paste into WhatsApp'))
+    .catch(()=>toast('Copy manually: '+text));
 }
 
-Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+/* ---- new customer ---- */
+function openCustomerForm(){
+  document.getElementById('nc-name').value='';
+  document.getElementById('nc-email').value='';
+  document.getElementById('nc-city').value='';
+  document.getElementById('nc-result').style.display='none';
+  document.getElementById('nc-submit').style.display='inline-block';
+  document.getElementById('cust-modal-bg').classList.add('on');
+}
+function closeCustomerForm(){
+  document.getElementById('cust-modal-bg').classList.remove('on');
+  loadCustomers().then(renderAdmin); // refresh table/dropdown with the new customer
+}
+async function createCustomer(){
+  const name = document.getElementById('nc-name').value.trim();
+  const email = document.getElementById('nc-email').value.trim();
+  const city = document.getElementById('nc-city').value.trim();
+  if(!name || !email){ toast('Name and email are required'); return; }
+
+  if(NEEDS_SETUP){
+    const id = crypto.randomUUID();
+    customers.push({id, name, email, city});
+    showCreds(email, '(demo mode — no real login created)');
+    await logActivity('created','customer',id,name,`Created customer login for ${email}`);
+    renderAdmin();
+    return;
   }
 
-  if (req.method !== "POST") {
-    return json({ error: "Method not allowed" }, 405);
+  const {data:{session}} = await sb.auth.getSession();
+  const {data, error} = await sb.functions.invoke('create-customer', {
+    body:{name, email, city},
+    headers:{ Authorization:`Bearer ${session.access_token}` }
+  });
+  if(error || data?.error){ toast('Could not create login: '+(data?.error||error.message)); return; }
+  showCreds(data.email, data.password);
+  await logActivity('created','customer',data.customer_id || null,name,`Created customer login for ${email}`);
+  await loadCustomers();
+  renderAdmin();
+}
+function showCreds(email, password){
+  document.getElementById('nc-result').style.display='block';
+  document.getElementById('nc-creds').innerHTML = `Email: ${esc(email)}<br>Password: ${esc(password)}`;
+  document.getElementById('nc-submit').style.display='none';
+}
+function copyCreds(){
+  const text = document.getElementById('nc-creds').innerText.replace('\n',' / ');
+  const msg = `Assalam o Alaikum! Here's your Shaikh China Sourcing order tracking login — ${text}. Sign in any time to see your order status.`;
+  navigator.clipboard?.writeText(msg).then(()=>toast('Login message copied — paste into WhatsApp'))
+    .catch(()=>toast('Copy manually: '+text));
+}
+
+/* ---- order form ---- */
+function openForm(id){
+  editingId = id||null;
+  const sel = document.getElementById('f-stage');
+  sel.innerHTML = STAGES.map(s=>`<option>${s.name}</option>`).join('');
+  const custSel = document.getElementById('f-customer-id');
+  if(!customers.length){
+    custSel.innerHTML = `<option value="">No customers yet — add one first</option>`;
+  } else {
+    custSel.innerHTML = customers.map(c=>`<option value="${c.id}">${esc(c.name)}${c.city?' — '+esc(c.city):''}</option>`).join('');
+  }
+  const o = id ? orders.find(x=>x.id===id) : null;
+  document.getElementById('modal-title').textContent = o? 'Edit order' : 'New order';
+  document.getElementById('btn-delete').style.display = o? 'inline':'none';
+  if(o) custSel.value = o.customer_id;
+  document.getElementById('f-product').value = o?.product||'';
+  document.getElementById('f-tn').value = o?.tn || genTN();
+  sel.value = o?.stage||'Inquiry';
+  document.getElementById('f-pct').value = o?.pct ?? 5;
+  document.getElementById('f-eta').value = o?.eta||'';
+  document.getElementById('f-update').value = '';
+  document.getElementById('modal-bg').classList.add('on');
+}
+function closeForm(){ document.getElementById('modal-bg').classList.remove('on'); }
+function stagePct(){
+  const s = STAGES.find(x=>x.name===document.getElementById('f-stage').value);
+  if(s) document.getElementById('f-pct').value = s.pct;
+}
+function genTN(){
+  const d = new Date();
+  const ym = String(d.getFullYear()).slice(2) + String(d.getMonth()+1).padStart(2,'0');
+  return `SCS-${ym}-${Math.floor(1000+Math.random()*9000)}`;
+}
+async function saveOrder(){
+  const customer_id = document.getElementById('f-customer-id').value;
+  const product = document.getElementById('f-product').value.trim();
+  if(!customer_id || !product){ toast('Pick a customer and enter a product first'); return; }
+  const pct = Math.max(0, Math.min(100, parseInt(document.getElementById('f-pct').value||0)));
+  const upd = document.getElementById('f-update').value.trim();
+  const existing = editingId ? orders.find(x=>x.id===editingId) : null;
+  const updates = existing ? [...existing.updates] : [];
+  if(upd) updates.push({t:new Date().toISOString().slice(0,10), msg:upd});
+
+  const record = {
+    customer_id,
+    tn: document.getElementById('f-tn').value,
+    product,
+    stage: document.getElementById('f-stage').value,
+    pct,
+    eta: document.getElementById('f-eta').value || null,
+    updates,
+  };
+
+  if(NEEDS_SETUP){
+    if(existing) Object.assign(existing, record);
+    else orders.push({id:crypto.randomUUID(), ...record});
+  } else if(editingId){
+    const {error} = await sb.from('orders').update(record).eq('id', editingId);
+    if(error){ toast('Save failed: '+error.message); return; }
+  } else {
+    const {error} = await sb.from('orders').insert(record);
+    if(error){ toast('Save failed: '+error.message); return; }
   }
 
-  try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceKey =
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
-      Deno.env.get("SUPABASE_SECRET_KEY");
-
-    if (!supabaseUrl || !serviceKey) {
-      console.error("Missing SUPABASE_URL or server-side service/secret key");
-      return json({ error: "The function's server secrets are not configured." }, 500);
-    }
-
-    const authorization = req.headers.get("Authorization");
-    const accessToken = authorization?.replace(/^Bearer\s+/i, "").trim();
-    if (!accessToken) {
-      return json({ error: "Authentication required." }, 401);
-    }
-
-    const adminClient = createClient(supabaseUrl, serviceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
-
-    // Validate the caller with Supabase Auth. Never trust client-provided user IDs.
-    const {
-      data: { user: caller },
-      error: callerError,
-    } = await adminClient.auth.getUser(accessToken);
-
-    if (callerError || !caller) {
-      return json({ error: "Your login session is invalid or expired." }, 401);
-    }
-
-    const { data: callerStaff, error: staffCheckError } = await adminClient
-      .from("staff")
-      .select("user_id, role, active")
-      .eq("user_id", caller.id)
-      .maybeSingle();
-
-    if (
-      staffCheckError ||
-      !callerStaff ||
-      callerStaff.active !== true ||
-      !["owner", "admin"].includes(callerStaff.role)
-    ) {
-      return json({ error: "Only an active owner or administrator can add staff." }, 403);
-    }
-
-    const body = await req.json();
-    const action = String(body?.action ?? "");
-    const name = String(body?.name ?? "").trim();
-    const email = String(body?.email ?? "").trim().toLowerCase();
-    const role = String(body?.role ?? "admin");
-
-    if (action !== "create") {
-      return json({ error: "Unsupported action." }, 400);
-    }
-
-    if (!name || !email) {
-      return json({ error: "Name and email are required." }, 400);
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return json({ error: "Enter a valid email address." }, 400);
-    }
-
-    if (!["admin", "viewer"].includes(role)) {
-      return json({ error: "Invalid staff role." }, 400);
-    }
-
-    const password = generatePassword();
-
-    const { data: created, error: createError } =
-      await adminClient.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          full_name: name,
-          staff_role: role,
-        },
-      });
-
-    if (createError || !created.user) {
-      const message = createError?.message ?? "Could not create the login.";
-      const status = /already|registered|exists/i.test(message) ? 409 : 400;
-      return json({ error: message }, status);
-    }
-
-    const { error: profileError } = await adminClient.from("staff").insert({
-      user_id: created.user.id,
-      name,
-      email,
-      role,
-      active: true,
-    });
-
-    if (profileError) {
-      // Roll back the Auth account if its matching staff profile could not be saved.
-      await adminClient.auth.admin.deleteUser(created.user.id);
-      console.error("Staff profile insert failed:", profileError.message);
-      return json({ error: "The login was rolled back because its staff profile could not be saved." }, 500);
-    }
-
-    return json({
-      success: true,
-      user_id: created.user.id,
-      email,
-      password,
-      role,
-    });
-  } catch (error) {
-    console.error("manage-staff failed:", error);
-    return json(
-      { error: error instanceof Error ? error.message : "Unexpected server error." },
-      500,
-    );
+  const savedId = editingId || record.id || null;
+  await logActivity(editingId?'updated':'created','order',savedId,record.tn,
+    `${customerName(customer_id)} — ${record.product}; stage ${record.stage}; progress ${record.pct}%`);
+  await loadOrders();
+  closeForm();
+  renderAdmin();
+  toast(editingId? 'Order updated':'Order created');
+}
+async function deleteOrder(){
+  if(!confirm('Delete this order? The customer will no longer see it in their dashboard.')) return;
+  const deleting = orders.find(x=>x.id===editingId);
+  if(NEEDS_SETUP){
+    orders = orders.filter(x=>x.id!==editingId);
+  } else {
+    const {error} = await sb.from('orders').delete().eq('id', editingId);
+    if(error){ toast('Delete failed: '+error.message); return; }
   }
-});
+  await logActivity('deleted','order',editingId,deleting?.tn || '',`${customerName(deleting?.customer_id)} — ${deleting?.product || ''}`);
+  await loadOrders();
+  closeForm();
+  renderAdmin();
+  toast('Order deleted');
+}
+
+/* ================= utils ================= */
+function esc(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(d){
+  if(!d) return '';
+  const dt = new Date(d+'T00:00:00');
+  if(isNaN(dt)) return d;
+  return dt.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+}
+let toastTimer;
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('on'), 2600);
+}
+
+if(NEEDS_SETUP){
+  seed();
+  window.addEventListener('DOMContentLoaded', ()=>toast('Demo mode — sign in with any email/password to preview, or add your Supabase URL/key in the script to go live'));
+} else {
+  checkExistingSession();
+}
+</script>
+</body>
+</html>
