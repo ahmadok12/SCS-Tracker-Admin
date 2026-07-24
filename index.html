@@ -154,8 +154,16 @@ main{max-width:1080px; margin:0 auto; padding:36px 24px 80px; position:relative}
 /* ---------- admin ---------- */
 .admin-head{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:22px}
 .admin-head h1{font-size:32px; letter-spacing:-.04em}
+.admin-head p{color:var(--muted);font-size:13px;margin-top:4px}
+.admin-nav{display:flex;gap:8px;flex-wrap:wrap;margin:-8px 0 24px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.admin-nav button{background:transparent;border:1px solid var(--line);border-radius:999px;padding:9px 16px;color:var(--muted);font-weight:750}
+.admin-nav button:hover,.admin-nav button.active{background:var(--ink);border-color:var(--ink);color:#fff}
+.admin-page{display:none}
+.admin-page.on{display:block;animation:fade .2s ease}
 .stat-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:26px}
 .stat{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; box-shadow:0 2px 10px #0a0a0a08}
+.stat.action{width:100%;text-align:left;color:var(--ink);cursor:pointer}
+.stat.action:hover{border-color:#fdba74;background:#fff7ed;transform:translateY(-1px)}
 .stat b{font-size:30px; display:block; color:var(--red); letter-spacing:-.03em}
 .stat span{font-size:11px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase; font-weight:700}
 .dashboard-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:26px}
@@ -164,6 +172,7 @@ main{max-width:1080px; margin:0 auto; padding:36px 24px 80px; position:relative}
 .dashboard-card h2{font-size:20px;letter-spacing:-.025em}
 .dashboard-card p{color:var(--muted);font-size:12px;margin-top:3px}
 .summary-list{display:grid;gap:8px}
+.summary-list.scrollable{max-height:360px;overflow-y:auto;padding-right:3px}
 .summary-row{
   width:100%;display:grid;grid-template-columns:minmax(110px,1fr) 2fr auto;align-items:center;gap:12px;
   background:var(--panel);border:1px solid transparent;border-radius:10px;padding:10px 12px;text-align:left;color:var(--ink);cursor:pointer;
@@ -285,101 +294,118 @@ td .stagechip{
 
     <div id="admin-panel" style="display:none">
       <div class="admin-head">
-        <h1>Dashboard</h1>
+        <div>
+          <h1 id="admin-page-title">Dashboard</h1>
+          <p id="admin-page-subtitle">A compact overview of all customer orders.</p>
+        </div>
         <div style="display:flex; gap:10px">
           <span class="staff-chip" id="signed-in-user"><span class="staff-dot"></span>Admin</span>
           <button class="btn ghost sm" onclick="doLogout()">Sign out</button>
-          <button class="btn ghost sm" id="new-customer-btn" onclick="openCustomerForm()">+ New customer</button>
-          <button class="btn gold" onclick="openForm()">+ New order</button>
         </div>
       </div>
-      <div class="stat-row" id="stats"></div>
+      <nav class="admin-nav" aria-label="Admin pages">
+        <button id="nav-dashboard" onclick="showAdminPage('dashboard')">Dashboard</button>
+        <button id="nav-orders" onclick="showAdminPage('orders')">Orders</button>
+        <button id="nav-users" onclick="showAdminPage('users')">Users</button>
+      </nav>
 
-      <div class="dashboard-grid">
-        <section class="dashboard-card">
-          <div class="dashboard-card-head">
-            <div>
-              <h2>Orders by status</h2>
-              <p>Select a status to view its orders.</p>
+      <div class="admin-page" id="page-dashboard">
+        <div class="stat-row" id="stats"></div>
+        <div class="dashboard-grid">
+          <section class="dashboard-card">
+            <div class="dashboard-card-head">
+              <div>
+                <h2>Orders by status</h2>
+                <p>Select a status to open its order list.</p>
+              </div>
+              <button class="btn ghost sm" onclick="openAllOrders()">View all</button>
             </div>
-          </div>
-          <div class="summary-list" id="status-summary"></div>
-        </section>
-        <section class="dashboard-card">
-          <div class="dashboard-card-head">
-            <div>
-              <h2>Orders by customer</h2>
-              <p>Select a customer to view their orders.</p>
+            <div class="summary-list" id="status-summary"></div>
+          </section>
+          <section class="dashboard-card">
+            <div class="dashboard-card-head">
+              <div>
+                <h2>Orders by customer</h2>
+                <p>Select a customer to open their order list.</p>
+              </div>
             </div>
-          </div>
-          <div class="summary-list" id="customer-summary"></div>
-        </section>
-      </div>
-
-      <div class="section-head" id="orders-section">
-        <div>
-          <h2 id="orders-heading">All orders</h2>
-          <p class="order-filter-note" id="orders-filter-note">Showing every customer order.</p>
-        </div>
-        <button class="btn ghost sm" id="clear-order-filter" style="display:none" onclick="clearOrderFilter()">Show all orders</button>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Customer</th><th>Product</th><th>Tracking #</th><th>Stage</th><th>Progress</th><th>ETA</th><th></th></tr>
-          </thead>
-          <tbody id="order-rows"></tbody>
-        </table>
-        <div class="empty" id="empty-msg" style="display:none">No orders yet. Click “+ New order” to add your first one.</div>
-      </div>
-
-      <div class="section-head">
-        <div>
-          <h2>Customers &amp; access</h2>
-          <p style="color:var(--muted);font-size:13px;margin-top:3px">Customer login details and password management.</p>
+            <div class="summary-list scrollable" id="customer-summary"></div>
+          </section>
         </div>
       </div>
-      <div class="table-wrap" style="margin-bottom:22px">
-        <table>
-          <thead><tr><th>Customer</th><th>City</th><th>Email (username)</th><th></th></tr></thead>
-          <tbody id="customer-rows"></tbody>
-        </table>
-        <div class="empty" id="cust-empty-msg" style="display:none">No customers yet. Click “+ New customer” to add one.</div>
-      </div>
 
-      <div id="team-section">
-        <div class="section-head">
+      <div class="admin-page" id="page-orders">
+        <div class="section-head" id="orders-section" style="margin-top:0">
           <div>
-            <h2>Team management</h2>
-            <p style="color:var(--muted);font-size:13px;margin-top:3px">Create staff logins and manage team access.</p>
+            <h2 id="orders-heading">All orders</h2>
+            <p class="order-filter-note" id="orders-filter-note">Showing every customer order.</p>
           </div>
-          <button class="btn ghost sm" onclick="openStaffForm()">+ Add team user</button>
-        </div>
-        <div class="table-wrap" style="margin-bottom:18px">
-          <table>
-            <thead><tr><th>Team user</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead>
-            <tbody id="staff-rows"></tbody>
-          </table>
-          <div class="empty" id="staff-empty-msg" style="display:none">No team users are available.</div>
-        </div>
-      </div>
-      <div id="activity-section">
-        <div class="section-head" style="margin-top:18px">
-          <div>
-            <h2 style="font-size:20px">Owner changes log</h2>
-            <p style="color:var(--muted);font-size:13px;margin-top:3px">Visible only to owners.</p>
-          </div>
-          <div class="activity-filters">
-            <select id="activity-user-filter" onchange="renderActivity()"><option value="">All users</option></select>
-            <button class="btn ghost sm" onclick="loadActivity().then(renderActivity)">Refresh</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn ghost sm" id="clear-order-filter" style="display:none" onclick="clearOrderFilter()">Show all orders</button>
+            <button class="btn gold sm" onclick="openForm()">+ New order</button>
           </div>
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Date &amp; time</th><th>User</th><th>Action</th><th>Item</th><th>Details</th></tr></thead>
-            <tbody id="activity-rows"></tbody>
+            <thead>
+              <tr><th>Customer</th><th>Product</th><th>Tracking #</th><th>Stage</th><th>Progress</th><th>ETA</th><th></th></tr>
+            </thead>
+            <tbody id="order-rows"></tbody>
           </table>
-          <div class="empty" id="activity-empty-msg">No recorded changes yet.</div>
+          <div class="empty" id="empty-msg" style="display:none">No orders yet. Click “+ New order” to add your first one.</div>
+        </div>
+      </div>
+
+      <div class="admin-page" id="page-users">
+        <div class="section-head" style="margin-top:0">
+          <div>
+            <h2>Customers &amp; access</h2>
+            <p style="color:var(--muted);font-size:13px;margin-top:3px">Customer login details and password management.</p>
+          </div>
+          <button class="btn ghost sm" id="new-customer-btn" onclick="openCustomerForm()">+ New customer</button>
+        </div>
+        <div class="table-wrap" style="margin-bottom:22px">
+          <table>
+            <thead><tr><th>Customer</th><th>City</th><th>Email (username)</th><th></th></tr></thead>
+            <tbody id="customer-rows"></tbody>
+          </table>
+          <div class="empty" id="cust-empty-msg" style="display:none">No customers yet. Click “+ New customer” to add one.</div>
+        </div>
+
+        <div id="team-section">
+          <div class="section-head">
+            <div>
+              <h2>Team management</h2>
+              <p style="color:var(--muted);font-size:13px;margin-top:3px">Create staff logins and manage team access.</p>
+            </div>
+            <button class="btn ghost sm" onclick="openStaffForm()">+ Add team user</button>
+          </div>
+          <div class="table-wrap" style="margin-bottom:18px">
+            <table>
+              <thead><tr><th>Team user</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead>
+              <tbody id="staff-rows"></tbody>
+            </table>
+            <div class="empty" id="staff-empty-msg" style="display:none">No team users are available.</div>
+          </div>
+        </div>
+        <div id="activity-section">
+          <div class="section-head" style="margin-top:18px">
+            <div>
+              <h2 style="font-size:20px">Owner changes log</h2>
+              <p style="color:var(--muted);font-size:13px;margin-top:3px">Visible only to owners.</p>
+            </div>
+            <div class="activity-filters">
+              <select id="activity-user-filter" onchange="renderActivity()"><option value="">All users</option></select>
+              <button class="btn ghost sm" onclick="loadActivity().then(renderActivity)">Refresh</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Date &amp; time</th><th>User</th><th>Action</th><th>Item</th><th>Details</th></tr></thead>
+              <tbody id="activity-rows"></tbody>
+            </table>
+            <div class="empty" id="activity-empty-msg">No recorded changes yet.</div>
+          </div>
         </div>
       </div>
     </div>
@@ -603,6 +629,7 @@ let activityLogs = [];
 let editingStaffId = null;
 let passwordStaffId = null;
 let orderFilter = {stage:'', customerId:''};
+let adminPage = 'dashboard';
 
 function currentRole(){ return currentStaff?.role || (NEEDS_SETUP ? 'owner' : 'manager'); }
 function isOwner(){ return currentRole()==='owner'; }
@@ -696,6 +723,7 @@ async function doLogout(){
 async function enterAdmin(){
   unlocked = true;
   orderFilter = {stage:'', customerId:''};
+  adminPage = 'dashboard';
   document.getElementById('admin-login').style.display='none';
   document.getElementById('admin-panel').style.display='block';
   await loadCustomers();
@@ -703,6 +731,7 @@ async function enterAdmin(){
   await loadStaff();
   if(isOwner()) await loadActivity();
   renderAdmin();
+  showAdminPage('dashboard', false);
 }
 async function checkExistingSession(){
   if(NEEDS_SETUP) return;
@@ -726,12 +755,16 @@ function renderAdmin(){
   document.getElementById('team-section').style.display = canManageUsers() ? 'block' : 'none';
   document.getElementById('activity-section').style.display = isOwner() ? 'block' : 'none';
   document.getElementById('new-customer-btn').style.display = canManageUsers() ? 'inline-block' : 'none';
+  document.getElementById('nav-users').style.display = canManageUsers() ? 'inline-block' : 'none';
+  if(adminPage==='users' && !canManageUsers()) showAdminPage('dashboard', false);
   document.getElementById('stats').innerHTML = `
-    <div class="stat"><b>${orders.length}</b><span>Total orders</span></div>
-    <div class="stat"><b>${customers.length}</b><span>Customers</span></div>
+    <button class="stat action" onclick="openAllOrders()"><b>${orders.length}</b><span>Total orders · open</span></button>
+    ${canManageUsers()
+      ? `<button class="stat action" onclick="showAdminPage('users')"><b>${customers.length}</b><span>Customers · manage</span></button>`
+      : `<div class="stat"><b>${customers.length}</b><span>Customers</span></div>`}
     <div class="stat"><b>${active}</b><span>In progress</span></div>
     <div class="stat"><b>${shipping}</b><span>On the water</span></div>
-    <div class="stat"><b>${delivered}</b><span>Delivered</span></div>`;
+    <button class="stat action" onclick="filterOrdersByStatus('Delivered')"><b>${delivered}</b><span>Delivered · open</span></button>`;
   renderDashboardSummaries();
   const filteredOrders = orders.filter(o=>
     (!orderFilter.stage || o.stage===orderFilter.stage) &&
@@ -781,6 +814,26 @@ function renderAdmin(){
   renderActivity();
 }
 
+function showAdminPage(page, scroll=true){
+  if(page==='users' && !canManageUsers()){
+    toast('Your role cannot manage users');
+    page = 'dashboard';
+  }
+  adminPage = page;
+  const meta = {
+    dashboard:['Dashboard','A compact overview of all customer orders.'],
+    orders:['Order management','View, create and update customer orders.'],
+    users:['User management','Manage customer access, team users and account activity.']
+  };
+  ['dashboard','orders','users'].forEach(name=>{
+    document.getElementById(`page-${name}`).classList.toggle('on', name===page);
+    document.getElementById(`nav-${name}`).classList.toggle('active', name===page);
+  });
+  document.getElementById('admin-page-title').textContent = meta[page][0];
+  document.getElementById('admin-page-subtitle').textContent = meta[page][1];
+  if(scroll) window.scrollTo({top:0,behavior:'smooth'});
+}
+
 function renderDashboardSummaries(){
   const statusMax = Math.max(1, ...STAGES.map(s=>orders.filter(o=>o.stage===s.name).length));
   document.getElementById('status-summary').innerHTML = STAGES.map(s=>{
@@ -811,17 +864,21 @@ function renderDashboardSummaries(){
 function filterOrdersByStatus(stage){
   orderFilter = {stage, customerId:''};
   renderAdmin();
-  document.getElementById('orders-section').scrollIntoView({behavior:'smooth',block:'start'});
+  showAdminPage('orders');
 }
 function filterOrdersByCustomer(customerId){
   orderFilter = {stage:'', customerId};
   renderAdmin();
-  document.getElementById('orders-section').scrollIntoView({behavior:'smooth',block:'start'});
+  showAdminPage('orders');
 }
-function clearOrderFilter(scroll=true){
+function clearOrderFilter(){
   orderFilter = {stage:'', customerId:''};
   renderAdmin();
-  if(scroll) document.getElementById('orders-section').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function openAllOrders(){
+  orderFilter = {stage:'', customerId:''};
+  renderAdmin();
+  showAdminPage('orders');
 }
 
 function renderStaff(){
