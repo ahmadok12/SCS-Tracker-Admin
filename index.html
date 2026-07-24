@@ -654,8 +654,9 @@ td .stagechip{
 const STAGES = [
   {name:'Inquiry',        pct:5},
   {name:'Quote',          pct:15},
-  {name:'Received in China Warehouse', pct:25},
+  {name:'Payment',        pct:25},
   {name:'Production',     pct:50},
+  {name:'Received in China Warehouse', pct:60},
   {name:'Quality Check',  pct:70},
   {name:'Shipping',       pct:85},
   {name:'Customs',        pct:93},
@@ -1472,11 +1473,13 @@ function populateStageOptions(preferredStage){
 }
 function categoryChanged(){
   const selected = populateStageOptions(document.getElementById('f-stage').value);
-  const stage = STAGES.find(s=>s.name===selected);
+  const stage = stagesForCategory(document.getElementById('f-category').value)
+    .find(s=>s.name===selected);
   if(stage) document.getElementById('f-pct').value = stage.pct;
 }
 function stagePct(){
-  const s = STAGES.find(x=>x.name===document.getElementById('f-stage').value);
+  const s = stagesForCategory(document.getElementById('f-category').value)
+    .find(x=>x.name===document.getElementById('f-stage').value);
   if(s) document.getElementById('f-pct').value = s.pct;
 }
 function genTN(){
@@ -1612,7 +1615,11 @@ function orderCategory(order){
 function stagesForCategory(category){
   if(category!=='Shipping') return STAGES;
   const excluded = new Set(['Production','Received in China Warehouse','Quality Check']);
-  return STAGES.filter(stage=>!excluded.has(stage.name));
+  return STAGES
+    .filter(stage=>!excluded.has(stage.name))
+    .map(stage=>stage.name==='Payment'
+      ? {name:'Received in China Warehouse', pct:stage.pct}
+      : stage);
 }
 function todayInputDate(){
   const now = new Date();
