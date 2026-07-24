@@ -158,6 +158,27 @@ main{max-width:1080px; margin:0 auto; padding:36px 24px 80px; position:relative}
 .stat{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; box-shadow:0 2px 10px #0a0a0a08}
 .stat b{font-size:30px; display:block; color:var(--red); letter-spacing:-.03em}
 .stat span{font-size:11px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase; font-weight:700}
+.dashboard-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:26px}
+.dashboard-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:0 2px 10px #0a0a0a08}
+.dashboard-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.dashboard-card h2{font-size:20px;letter-spacing:-.025em}
+.dashboard-card p{color:var(--muted);font-size:12px;margin-top:3px}
+.summary-list{display:grid;gap:8px}
+.summary-row{
+  width:100%;display:grid;grid-template-columns:minmax(110px,1fr) 2fr auto;align-items:center;gap:12px;
+  background:var(--panel);border:1px solid transparent;border-radius:10px;padding:10px 12px;text-align:left;color:var(--ink);cursor:pointer;
+}
+.summary-row:hover,.summary-row.active{background:#fff7ed;border-color:#fed7aa}
+.summary-row strong{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.summary-row .count{font-size:14px;font-weight:800;color:var(--red);min-width:22px;text-align:right}
+.summary-bar{height:7px;background:#e5e7eb;border-radius:99px;overflow:hidden}
+.summary-bar-fill{height:100%;background:linear-gradient(90deg,var(--orange),var(--red));border-radius:99px}
+.dashboard-empty{color:var(--muted);font-size:14px;padding:18px 0;text-align:center}
+.order-filter-note{color:var(--muted);font-size:13px;margin-top:3px}
+@media(max-width:780px){
+  .dashboard-grid{grid-template-columns:1fr}
+  .summary-row{grid-template-columns:minmax(105px,1fr) 1.4fr auto}
+}
 
 .table-wrap{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); overflow-x:auto; box-shadow:0 2px 10px #0a0a0a08}
 table{width:100%; border-collapse:collapse; min-width:760px}
@@ -264,7 +285,7 @@ td .stagechip{
 
     <div id="admin-panel" style="display:none">
       <div class="admin-head">
-        <h1>All orders</h1>
+        <h1>Dashboard</h1>
         <div style="display:flex; gap:10px">
           <span class="staff-chip" id="signed-in-user"><span class="staff-dot"></span>Admin</span>
           <button class="btn ghost sm" onclick="doLogout()">Sign out</button>
@@ -273,12 +294,34 @@ td .stagechip{
         </div>
       </div>
       <div class="stat-row" id="stats"></div>
-      <div class="table-wrap" style="margin-bottom:22px">
-        <table>
-          <thead><tr><th>Customer</th><th>City</th><th>Email (username)</th><th></th></tr></thead>
-          <tbody id="customer-rows"></tbody>
-        </table>
-        <div class="empty" id="cust-empty-msg" style="display:none">No customers yet. Click “+ New customer” to add one.</div>
+
+      <div class="dashboard-grid">
+        <section class="dashboard-card">
+          <div class="dashboard-card-head">
+            <div>
+              <h2>Orders by status</h2>
+              <p>Select a status to view its orders.</p>
+            </div>
+          </div>
+          <div class="summary-list" id="status-summary"></div>
+        </section>
+        <section class="dashboard-card">
+          <div class="dashboard-card-head">
+            <div>
+              <h2>Orders by customer</h2>
+              <p>Select a customer to view their orders.</p>
+            </div>
+          </div>
+          <div class="summary-list" id="customer-summary"></div>
+        </section>
+      </div>
+
+      <div class="section-head" id="orders-section">
+        <div>
+          <h2 id="orders-heading">All orders</h2>
+          <p class="order-filter-note" id="orders-filter-note">Showing every customer order.</p>
+        </div>
+        <button class="btn ghost sm" id="clear-order-filter" style="display:none" onclick="clearOrderFilter()">Show all orders</button>
       </div>
       <div class="table-wrap">
         <table>
@@ -288,6 +331,20 @@ td .stagechip{
           <tbody id="order-rows"></tbody>
         </table>
         <div class="empty" id="empty-msg" style="display:none">No orders yet. Click “+ New order” to add your first one.</div>
+      </div>
+
+      <div class="section-head">
+        <div>
+          <h2>Customers &amp; access</h2>
+          <p style="color:var(--muted);font-size:13px;margin-top:3px">Customer login details and password management.</p>
+        </div>
+      </div>
+      <div class="table-wrap" style="margin-bottom:22px">
+        <table>
+          <thead><tr><th>Customer</th><th>City</th><th>Email (username)</th><th></th></tr></thead>
+          <tbody id="customer-rows"></tbody>
+        </table>
+        <div class="empty" id="cust-empty-msg" style="display:none">No customers yet. Click “+ New customer” to add one.</div>
       </div>
 
       <div id="team-section">
@@ -545,6 +602,7 @@ let staff = [];
 let activityLogs = [];
 let editingStaffId = null;
 let passwordStaffId = null;
+let orderFilter = {stage:'', customerId:''};
 
 function currentRole(){ return currentStaff?.role || (NEEDS_SETUP ? 'owner' : 'manager'); }
 function isOwner(){ return currentRole()==='owner'; }
@@ -637,6 +695,7 @@ async function doLogout(){
 }
 async function enterAdmin(){
   unlocked = true;
+  orderFilter = {stage:'', customerId:''};
   document.getElementById('admin-login').style.display='none';
   document.getElementById('admin-panel').style.display='block';
   await loadCustomers();
@@ -673,8 +732,28 @@ function renderAdmin(){
     <div class="stat"><b>${active}</b><span>In progress</span></div>
     <div class="stat"><b>${shipping}</b><span>On the water</span></div>
     <div class="stat"><b>${delivered}</b><span>Delivered</span></div>`;
-  document.getElementById('empty-msg').style.display = orders.length? 'none':'block';
-  tbody.innerHTML = orders.slice().sort((a,b)=>a.pct-b.pct).map(o=>{
+  renderDashboardSummaries();
+  const filteredOrders = orders.filter(o=>
+    (!orderFilter.stage || o.stage===orderFilter.stage) &&
+    (!orderFilter.customerId || o.customer_id===orderFilter.customerId)
+  );
+  const selectedCustomer = customers.find(c=>c.id===orderFilter.customerId);
+  const filterLabel = orderFilter.stage
+    ? `Status: ${orderFilter.stage}`
+    : orderFilter.customerId
+      ? `Customer: ${selectedCustomer?.name || 'Unknown'}`
+      : '';
+  document.getElementById('orders-heading').textContent = filterLabel || 'All orders';
+  document.getElementById('orders-filter-note').textContent = filterLabel
+    ? `${filteredOrders.length} matching order${filteredOrders.length===1?'':'s'}.`
+    : `Showing all ${orders.length} order${orders.length===1?'':'s'}.`;
+  document.getElementById('clear-order-filter').style.display = filterLabel ? 'inline-block' : 'none';
+  const empty = document.getElementById('empty-msg');
+  empty.style.display = filteredOrders.length ? 'none':'block';
+  empty.textContent = orders.length
+    ? 'No orders match this dashboard filter.'
+    : 'No orders yet. Click “+ New order” to add your first one.';
+  tbody.innerHTML = filteredOrders.slice().sort((a,b)=>a.pct-b.pct).map(o=>{
     const c = customers.find(c=>c.id===o.customer_id);
     return `
     <tr class="row">
@@ -700,6 +779,49 @@ function renderAdmin(){
     </tr>`).join('');
   renderStaff();
   renderActivity();
+}
+
+function renderDashboardSummaries(){
+  const statusMax = Math.max(1, ...STAGES.map(s=>orders.filter(o=>o.stage===s.name).length));
+  document.getElementById('status-summary').innerHTML = STAGES.map(s=>{
+    const count = orders.filter(o=>o.stage===s.name).length;
+    return `
+      <button class="summary-row ${orderFilter.stage===s.name?'active':''}" onclick="filterOrdersByStatus('${s.name}')">
+        <strong>${esc(s.name)}</strong>
+        <span class="summary-bar"><span class="summary-bar-fill" style="width:${count/statusMax*100}%"></span></span>
+        <span class="count">${count}</span>
+      </button>`;
+  }).join('');
+
+  const customerCounts = customers.map(c=>({
+    ...c,
+    orderCount:orders.filter(o=>o.customer_id===c.id).length
+  })).sort((a,b)=>b.orderCount-a.orderCount || a.name.localeCompare(b.name));
+  const customerMax = Math.max(1, ...customerCounts.map(c=>c.orderCount));
+  document.getElementById('customer-summary').innerHTML = customerCounts.length
+    ? customerCounts.map(c=>`
+        <button class="summary-row ${orderFilter.customerId===c.id?'active':''}" onclick="filterOrdersByCustomer('${c.id}')">
+          <strong title="${esc(c.name)}">${esc(c.name)}</strong>
+          <span class="summary-bar"><span class="summary-bar-fill" style="width:${c.orderCount/customerMax*100}%"></span></span>
+          <span class="count">${c.orderCount}</span>
+        </button>`).join('')
+    : `<div class="dashboard-empty">No customers have been added yet.</div>`;
+}
+
+function filterOrdersByStatus(stage){
+  orderFilter = {stage, customerId:''};
+  renderAdmin();
+  document.getElementById('orders-section').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function filterOrdersByCustomer(customerId){
+  orderFilter = {stage:'', customerId};
+  renderAdmin();
+  document.getElementById('orders-section').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function clearOrderFilter(scroll=true){
+  orderFilter = {stage:'', customerId:''};
+  renderAdmin();
+  if(scroll) document.getElementById('orders-section').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 function renderStaff(){
