@@ -451,7 +451,7 @@ td .stagechip{
       </div>
       <div class="field full"><label>Product / order description</label><input id="f-product" placeholder="500 units LED desk lamps, custom logo"></div>
       <div class="field full"><label>Order category</label>
-        <select id="f-category"></select>
+        <select id="f-category" onchange="categoryChanged()"></select>
       </div>
       <div class="field"><label>Tracking number</label><input id="f-tn" placeholder="Auto-generated" readonly style="opacity:.7"></div>
       <div class="field"><label>Current stage</label>
@@ -951,9 +951,10 @@ function shipSVG(){
 function viewOrder(id){
   const o = orders.find(x=>x.id===id);
   if(!o){ toast('Order could not be found'); return; }
-  const idx = STAGES.findIndex(s=>s.name===o.stage);
+  const routeStages = stagesForCategory(orderCategory(o));
+  const idx = routeStages.findIndex(s=>s.name===o.stage);
   const done = Number(o.pct)>=100;
-  const stops = STAGES.map((s,i)=>`
+  const stops = routeStages.map((s,i)=>`
     <div class="stop ${i<idx?'past':''} ${i===idx?'now':''}"><span>${esc(s.name)}</span></div>`).join('');
   const updates = Array.isArray(o.updates) && o.updates.length
     ? o.updates.slice().reverse().map(u=>`
@@ -1354,8 +1355,6 @@ async function functionErrorMessage(error,data){
 /* ---- order form ---- */
 function openForm(id){
   editingId = id||null;
-  const sel = document.getElementById('f-stage');
-  sel.innerHTML = STAGES.map(s=>`<option>${s.name}</option>`).join('');
   const categorySel = document.getElementById('f-category');
   categorySel.innerHTML = ORDER_CATEGORIES.map(category=>`<option>${category}</option>`).join('');
   const custSel = document.getElementById('f-customer-id');
@@ -1371,8 +1370,10 @@ function openForm(id){
   document.getElementById('f-product').value = o?.product||'';
   categorySel.value = orderCategory(o);
   document.getElementById('f-tn').value = o?.tn || genTN();
-  sel.value = o?.stage||'Inquiry';
-  document.getElementById('f-pct').value = o?.pct ?? 5;
+  const selectedStage = populateStageOptions(o?.stage||'Inquiry');
+  document.getElementById('f-pct').value = o && selectedStage===o.stage
+    ? o.pct
+    : (STAGES.find(s=>s.name===selectedStage)?.pct ?? 5);
   document.getElementById('f-eta').value = o?.eta||'';
   document.getElementById('f-update-date').value = todayInputDate();
   document.getElementById('f-update').value = '';
@@ -1397,6 +1398,22 @@ function renderOrderUpdateHistory(updates){
     : `<div class="order-update-history-empty">No updates have been posted for this order yet.</div>`;
 }
 function closeForm(){ document.getElementById('modal-bg').classList.remove('on'); }
+function populateStageOptions(preferredStage){
+  const sel = document.getElementById('f-stage');
+  const stages = stagesForCategory(document.getElementById('f-category').value);
+  const previous = STAGES.find(s=>s.name===preferredStage);
+  const selected = stages.some(s=>s.name===preferredStage)
+    ? preferredStage
+    : (stages.find(s=>s.pct>=(previous?.pct ?? 0)) || stages[0]).name;
+  sel.innerHTML = stages.map(s=>`<option>${s.name}</option>`).join('');
+  sel.value = selected;
+  return selected;
+}
+function categoryChanged(){
+  const selected = populateStageOptions(document.getElementById('f-stage').value);
+  const stage = STAGES.find(s=>s.name===selected);
+  if(stage) document.getElementById('f-pct').value = stage.pct;
+}
 function stagePct(){
   const s = STAGES.find(x=>x.name===document.getElementById('f-stage').value);
   if(s) document.getElementById('f-pct').value = s.pct;
@@ -1505,6 +1522,11 @@ function fmtDate(d){
 }
 function orderCategory(order){
   return ORDER_CATEGORIES.includes(order?.category) ? order.category : 'Sourcing';
+}
+function stagesForCategory(category){
+  if(category!=='Shipping') return STAGES;
+  const excluded = new Set(['Production','Received in China Warehouse','Quality Check']);
+  return STAGES.filter(stage=>!excluded.has(stage.name));
 }
 function todayInputDate(){
   const now = new Date();
