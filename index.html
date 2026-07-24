@@ -431,7 +431,7 @@ td .stagechip{
         </div>
         <div class="table-wrap" style="margin-bottom:22px">
           <table>
-            <thead><tr><th>Customer</th><th>City</th><th>Email (username)</th><th></th></tr></thead>
+            <thead><tr><th>Customer</th><th>City</th><th>Mobile</th><th>Email (username)</th><th></th></tr></thead>
             <tbody id="customer-rows"></tbody>
           </table>
           <div class="empty" id="cust-empty-msg" style="display:none">No customers yet. Click “+ New customer” to add one.</div>
@@ -570,6 +570,7 @@ td .stagechip{
       <div class="field full"><label>Customer / company name</label><input id="nc-name" placeholder="Bilal Traders"></div>
       <div class="field"><label>Email (their username)</label><input id="nc-email" type="email" placeholder="bilal@traders.com"></div>
       <div class="field"><label>City</label><input id="nc-city" placeholder="Karachi"></div>
+      <div class="field full"><label>Mobile number</label><input id="nc-mobile" type="tel" inputmode="tel" placeholder="+92 300 1234567"></div>
       <div class="field"><label>Password type</label>
         <select id="nc-password-mode" onchange="toggleCustomerPasswordField('nc')">
           <option value="automatic">Generate automatically</option>
@@ -588,6 +589,27 @@ td .stagechip{
     <div class="modal-actions">
       <button class="btn ghost" onclick="closeCustomerForm()">Close</button>
       <button class="btn" id="nc-submit" onclick="createCustomer()">Create login</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT CUSTOMER MODAL -->
+<div class="modal-bg" id="edit-customer-modal-bg">
+  <div class="modal">
+    <h2 id="ec-title">Edit customer</h2>
+    <p style="color:var(--ink-dim);font-size:14px;margin-bottom:16px">Update the customer’s contact information and tracking-portal username.</p>
+    <div class="fgrid">
+      <div class="field full"><label>Customer / company name</label><input id="ec-name" placeholder="Bilal Traders"></div>
+      <div class="field"><label>Email (their username)</label><input id="ec-email" type="email" placeholder="bilal@traders.com"></div>
+      <div class="field"><label>City</label><input id="ec-city" placeholder="Karachi"></div>
+      <div class="field full"><label>Mobile number</label><input id="ec-mobile" type="tel" inputmode="tel" placeholder="+92 300 1234567"></div>
+    </div>
+    <div class="modal-actions" style="justify-content:space-between">
+      <button class="btn ghost" type="button" onclick="openResetFromCustomerEdit()">Reset password</button>
+      <div style="display:flex;gap:10px">
+        <button class="btn ghost" type="button" onclick="closeEditCustomerForm()">Cancel</button>
+        <button class="btn" id="ec-submit" type="button" onclick="saveCustomerChanges()">Save changes</button>
+      </div>
     </div>
   </div>
 </div>
@@ -743,6 +765,7 @@ let staff = [];
 let activityLogs = [];
 let editingStaffId = null;
 let passwordStaffId = null;
+let editingCustomerId = null;
 let orderFilter = {stage:'', customerId:'', category:''};
 let adminPage = 'dashboard';
 let currentAdminNotes = [];
@@ -755,9 +778,9 @@ function canManageUsers(){ return ['owner','admin'].includes(currentRole()); }
 const seed = () => {
   const c1 = crypto.randomUUID(), c2 = crypto.randomUUID(), c3 = crypto.randomUUID();
   customers = [
-    {id:c1, name:'Bilal Traders', email:'demo@bilaltraders.com', city:'Karachi'},
-    {id:c2, name:'Al Noor Electronics', email:'demo@alnoor.ae', city:'Dubai'},
-    {id:c3, name:'Madina Mart', email:'demo@madinamart.pk', city:'Lahore'},
+    {id:c1, name:'Bilal Traders', email:'demo@bilaltraders.com', city:'Karachi', mobile:'+92 300 1234567'},
+    {id:c2, name:'Al Noor Electronics', email:'demo@alnoor.ae', city:'Dubai', mobile:'+971 50 123 4567'},
+    {id:c3, name:'Madina Mart', email:'demo@madinamart.pk', city:'Lahore', mobile:'+92 321 7654321'},
   ];
   orders = [
     {id:crypto.randomUUID(), customer_id:c1, tn:'SCS-2607-4821',
@@ -931,8 +954,9 @@ function renderAdmin(){
     <tr class="row">
       <td><strong>${esc(c.name)}</strong></td>
       <td>${esc(c.city||'—')}</td>
+      <td>${esc(c.mobile||'—')}</td>
       <td style="font-size:13px; color:var(--ink-dim)">${esc(c.email)}</td>
-      <td>${canManageUsers()?`<button class="btn ghost sm" onclick="openResetModal('${c.id}')">Reset password</button>`:'—'}</td>
+      <td>${canManageUsers()?`<button class="btn ghost sm" onclick="openEditCustomerForm('${c.id}')">Edit</button>`:'—'}</td>
     </tr>`).join('');
   renderStaff();
   renderActivity();
@@ -1359,12 +1383,83 @@ function copyResetCreds(){
     .catch(()=>toast('Copy manually: '+text));
 }
 
+/* ---- edit customer ---- */
+function openEditCustomerForm(customerId){
+  if(!canManageUsers()){ toast('Your role cannot edit customers'); return; }
+  const c = customers.find(x=>x.id===customerId);
+  if(!c){ toast('Customer record not found'); return; }
+  editingCustomerId = customerId;
+  document.getElementById('ec-title').textContent = `Edit customer — ${c.name}`;
+  document.getElementById('ec-name').value = c.name || '';
+  document.getElementById('ec-email').value = c.email || '';
+  document.getElementById('ec-city').value = c.city || '';
+  document.getElementById('ec-mobile').value = c.mobile || '';
+  document.getElementById('ec-submit').disabled = false;
+  document.getElementById('edit-customer-modal-bg').classList.add('on');
+}
+function closeEditCustomerForm(){
+  document.getElementById('edit-customer-modal-bg').classList.remove('on');
+  editingCustomerId = null;
+}
+function openResetFromCustomerEdit(){
+  const customerId = editingCustomerId;
+  if(!customerId) return;
+  closeEditCustomerForm();
+  openResetModal(customerId);
+}
+async function saveCustomerChanges(){
+  if(!canManageUsers()){ toast('Your role cannot edit customers'); return; }
+  const c = customers.find(x=>x.id===editingCustomerId);
+  if(!c){ toast('Customer record not found'); return; }
+  const name = document.getElementById('ec-name').value.trim();
+  const email = document.getElementById('ec-email').value.trim();
+  const city = document.getElementById('ec-city').value.trim();
+  const mobile = document.getElementById('ec-mobile').value.trim();
+  if(!name || !email){ toast('Name and email are required'); return; }
+
+  const submit = document.getElementById('ec-submit');
+  submit.disabled = true;
+  if(NEEDS_SETUP){
+    Object.assign(c,{name,email,city,mobile});
+    await logActivity('updated','customer',c.id,name,`Updated customer profile for ${email}`);
+    closeEditCustomerForm();
+    renderAdmin();
+    toast('Customer updated');
+    return;
+  }
+
+  const {data:{session}} = await sb.auth.getSession();
+  const {data, error} = await sb.functions.invoke('create-customer', {
+    body:{
+      action:'update',
+      customer_id:c.id,
+      name,
+      email,
+      city,
+      mobile
+    },
+    headers:{ Authorization:`Bearer ${session.access_token}` }
+  });
+  if(error || data?.error){
+    submit.disabled = false;
+    const message = await functionErrorMessage(error,data);
+    toast('Could not update customer: '+message);
+    return;
+  }
+  await logActivity('updated','customer',c.id,name,`Updated customer profile and login username to ${email}`);
+  await loadCustomers();
+  closeEditCustomerForm();
+  renderAdmin();
+  toast('Customer updated');
+}
+
 /* ---- new customer ---- */
 function openCustomerForm(){
   if(!canManageUsers()){ toast('Your role cannot create users'); return; }
   document.getElementById('nc-name').value='';
   document.getElementById('nc-email').value='';
   document.getElementById('nc-city').value='';
+  document.getElementById('nc-mobile').value='';
   document.getElementById('nc-password-mode').value='automatic';
   document.getElementById('nc-password').value='';
   toggleCustomerPasswordField('nc');
@@ -1381,6 +1476,7 @@ async function createCustomer(){
   const name = document.getElementById('nc-name').value.trim();
   const email = document.getElementById('nc-email').value.trim();
   const city = document.getElementById('nc-city').value.trim();
+  const mobile = document.getElementById('nc-mobile').value.trim();
   const password_mode = document.getElementById('nc-password-mode').value;
   const password = document.getElementById('nc-password').value;
   if(!name || !email){ toast('Name and email are required'); return; }
@@ -1391,7 +1487,7 @@ async function createCustomer(){
 
   if(NEEDS_SETUP){
     const id = crypto.randomUUID();
-    customers.push({id, name, email, city});
+    customers.push({id, name, email, city, mobile});
     showCreds(email, password_mode==='custom'?password:'Demo-Customer!4837');
     await logActivity('created','customer',id,name,`Created customer login for ${email}`);
     renderAdmin();
@@ -1405,6 +1501,7 @@ async function createCustomer(){
       name,
       email,
       city,
+      mobile,
       password_mode,
       password:password_mode==='custom'?password:undefined
     },
@@ -1427,7 +1524,7 @@ function showCreds(email, password){
 }
 function copyCreds(){
   const text = document.getElementById('nc-creds').innerText.replace('\n',' / ');
-  const msg = `Assalam o Alaikum! Here's your Shaikh China Sourcing order tracking login — ${text}. Sign in any time to see your order status.`;
+  const msg = `Assalam o Alaikum! Here's your Shaikh China Sourcing order tracking login — ${text}.\n\nCustomer tracking portal:\nhttps://track.shaikhchinasourcing.com/\n\nSign in any time to see your order status.`;
   navigator.clipboard?.writeText(msg).then(()=>toast('Login message copied — paste into WhatsApp'))
     .catch(()=>toast('Copy manually: '+text));
 }
