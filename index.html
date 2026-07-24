@@ -166,7 +166,7 @@ main{max-width:1080px; margin:0 auto; padding:36px 24px 80px; position:relative}
 .stat.action:hover{border-color:#fdba74;background:#fff7ed;transform:translateY(-1px)}
 .stat b{font-size:30px; display:block; color:var(--red); letter-spacing:-.03em}
 .stat span{font-size:11px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase; font-weight:700}
-.dashboard-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:26px}
+.dashboard-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-bottom:26px}
 .dashboard-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:0 2px 10px #0a0a0a08}
 .dashboard-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
 .dashboard-card h2{font-size:20px;letter-spacing:-.025em}
@@ -184,6 +184,7 @@ main{max-width:1080px; margin:0 auto; padding:36px 24px 80px; position:relative}
 .summary-bar-fill{height:100%;background:linear-gradient(90deg,var(--orange),var(--red));border-radius:99px}
 .dashboard-empty{color:var(--muted);font-size:14px;padding:18px 0;text-align:center}
 .order-filter-note{color:var(--muted);font-size:13px;margin-top:3px}
+@media(max-width:980px){.dashboard-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:780px){
   .dashboard-grid{grid-template-columns:1fr}
   .summary-row{grid-template-columns:minmax(105px,1fr) 1.4fr auto}
@@ -338,6 +339,16 @@ td .stagechip{
             </div>
             <div class="summary-list scrollable" id="customer-summary"></div>
           </section>
+          <section class="dashboard-card">
+            <div class="dashboard-card-head">
+              <div>
+                <h2>Orders by category</h2>
+                <p>Select a category to open its order list.</p>
+              </div>
+              <button class="btn ghost sm" onclick="openAllOrders()">View all</button>
+            </div>
+            <div class="summary-list" id="category-summary"></div>
+          </section>
         </div>
       </div>
 
@@ -355,7 +366,7 @@ td .stagechip{
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Customer</th><th>Product</th><th>Tracking #</th><th>Stage</th><th>Progress</th><th>ETA</th><th></th></tr>
+              <tr><th>Customer</th><th>Product</th><th>Category</th><th>Tracking #</th><th>Stage</th><th>Progress</th><th>ETA</th><th></th></tr>
             </thead>
             <tbody id="order-rows"></tbody>
           </table>
@@ -439,6 +450,9 @@ td .stagechip{
         <select id="f-customer-id"></select>
       </div>
       <div class="field full"><label>Product / order description</label><input id="f-product" placeholder="500 units LED desk lamps, custom logo"></div>
+      <div class="field full"><label>Order category</label>
+        <select id="f-category"></select>
+      </div>
       <div class="field"><label>Tracking number</label><input id="f-tn" placeholder="Auto-generated" readonly style="opacity:.7"></div>
       <div class="field"><label>Current stage</label>
         <select id="f-stage" onchange="stagePct()"></select>
@@ -625,11 +639,13 @@ const STAGES = [
   {name:'Quote',          pct:15},
   {name:'Payment',        pct:25},
   {name:'Production',     pct:50},
+  {name:'Received in China Warehouse', pct:60},
   {name:'Quality Check',  pct:70},
   {name:'Shipping',       pct:85},
   {name:'Customs',        pct:93},
   {name:'Delivered',      pct:100},
 ];
+const ORDER_CATEGORIES = ['Sourcing','Shipping','Trading'];
 // ===== Supabase config — fill these in from Settings → API in your Supabase project =====
 const SUPABASE_URL = 'https://eourkizstbgmrqkdwnjd.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rEKWzv2DaUZHhHwBdCJKXg_9jEQkz6k';
@@ -646,7 +662,7 @@ let staff = [];
 let activityLogs = [];
 let editingStaffId = null;
 let passwordStaffId = null;
-let orderFilter = {stage:'', customerId:''};
+let orderFilter = {stage:'', customerId:'', category:''};
 let adminPage = 'dashboard';
 
 function currentRole(){ return currentStaff?.role || (NEEDS_SETUP ? 'owner' : 'manager'); }
@@ -740,7 +756,7 @@ async function doLogout(){
 }
 async function enterAdmin(){
   unlocked = true;
-  orderFilter = {stage:'', customerId:''};
+  orderFilter = {stage:'', customerId:'', category:''};
   adminPage = 'dashboard';
   document.getElementById('admin-login').style.display='none';
   document.getElementById('admin-panel').style.display='block';
@@ -786,14 +802,17 @@ function renderAdmin(){
   renderDashboardSummaries();
   const filteredOrders = orders.filter(o=>
     (!orderFilter.stage || o.stage===orderFilter.stage) &&
-    (!orderFilter.customerId || o.customer_id===orderFilter.customerId)
+    (!orderFilter.customerId || o.customer_id===orderFilter.customerId) &&
+    (!orderFilter.category || orderCategory(o)===orderFilter.category)
   );
   const selectedCustomer = customers.find(c=>c.id===orderFilter.customerId);
   const filterLabel = orderFilter.stage
     ? `Status: ${orderFilter.stage}`
     : orderFilter.customerId
       ? `Customer: ${selectedCustomer?.name || 'Unknown'}`
-      : '';
+      : orderFilter.category
+        ? `Category: ${orderFilter.category}`
+        : '';
   document.getElementById('orders-heading').textContent = filterLabel || 'All orders';
   document.getElementById('orders-filter-note').textContent = filterLabel
     ? `${filteredOrders.length} matching order${filteredOrders.length===1?'':'s'}.`
@@ -810,6 +829,7 @@ function renderAdmin(){
     <tr class="row">
       <td><strong>${esc(c?.name||'Unknown')}</strong><br><span style="color:var(--ink-dim);font-size:12px">${esc(c?.city||'')}</span></td>
       <td style="max-width:220px">${esc(o.product)}</td>
+      <td><span class="stagechip">${esc(orderCategory(o))}</span></td>
       <td>${o.tn}</td>
       <td><span class="stagechip">${o.stage}</span></td>
       <td><div style="display:flex;align-items:center">
@@ -880,24 +900,42 @@ function renderDashboardSummaries(){
           <span class="count">${c.orderCount}</span>
         </button>`).join('')
     : `<div class="dashboard-empty">No customers have been added yet.</div>`;
+
+  const categoryMax = Math.max(1, ...ORDER_CATEGORIES.map(category=>
+    orders.filter(o=>orderCategory(o)===category).length
+  ));
+  document.getElementById('category-summary').innerHTML = ORDER_CATEGORIES.map(category=>{
+    const count = orders.filter(o=>orderCategory(o)===category).length;
+    return `
+      <button class="summary-row ${orderFilter.category===category?'active':''}" onclick="filterOrdersByCategory('${category}')">
+        <strong>${esc(category)}</strong>
+        <span class="summary-bar"><span class="summary-bar-fill" style="width:${count/categoryMax*100}%"></span></span>
+        <span class="count">${count}</span>
+      </button>`;
+  }).join('');
 }
 
 function filterOrdersByStatus(stage){
-  orderFilter = {stage, customerId:''};
+  orderFilter = {stage, customerId:'', category:''};
   renderAdmin();
   showAdminPage('orders');
 }
 function filterOrdersByCustomer(customerId){
-  orderFilter = {stage:'', customerId};
+  orderFilter = {stage:'', customerId, category:''};
+  renderAdmin();
+  showAdminPage('orders');
+}
+function filterOrdersByCategory(category){
+  orderFilter = {stage:'', customerId:'', category};
   renderAdmin();
   showAdminPage('orders');
 }
 function clearOrderFilter(){
-  orderFilter = {stage:'', customerId:''};
+  orderFilter = {stage:'', customerId:'', category:''};
   renderAdmin();
 }
 function openAllOrders(){
-  orderFilter = {stage:'', customerId:''};
+  orderFilter = {stage:'', customerId:'', category:''};
   renderAdmin();
   showAdminPage('orders');
 }
@@ -942,6 +980,7 @@ function viewOrder(id){
       </div>
       <div class="meta-grid">
         <div class="meta"><label>Progress</label><div class="big">${esc(o.pct)}%</div></div>
+        <div class="meta"><label>Category</label><div>${esc(orderCategory(o))}</div></div>
         <div class="meta"><label>Current stage</label><div>${esc(o.stage)}</div></div>
         <div class="meta"><label>Estimated ${done?'delivered':'completion'}</label><div>${esc(fmtDate(o.eta)||'—')}</div></div>
       </div>
@@ -1317,6 +1356,8 @@ function openForm(id){
   editingId = id||null;
   const sel = document.getElementById('f-stage');
   sel.innerHTML = STAGES.map(s=>`<option>${s.name}</option>`).join('');
+  const categorySel = document.getElementById('f-category');
+  categorySel.innerHTML = ORDER_CATEGORIES.map(category=>`<option>${category}</option>`).join('');
   const custSel = document.getElementById('f-customer-id');
   if(!customers.length){
     custSel.innerHTML = `<option value="">No customers yet — add one first</option>`;
@@ -1328,6 +1369,7 @@ function openForm(id){
   document.getElementById('btn-delete').style.display = o? 'inline':'none';
   if(o) custSel.value = o.customer_id;
   document.getElementById('f-product').value = o?.product||'';
+  categorySel.value = orderCategory(o);
   document.getElementById('f-tn').value = o?.tn || genTN();
   sel.value = o?.stage||'Inquiry';
   document.getElementById('f-pct').value = o?.pct ?? 5;
@@ -1385,6 +1427,7 @@ async function saveOrder(){
     customer_id,
     tn: document.getElementById('f-tn').value,
     product,
+    category: document.getElementById('f-category').value,
     stage: document.getElementById('f-stage').value,
     pct,
     eta: document.getElementById('f-eta').value || null,
@@ -1408,7 +1451,7 @@ async function saveOrder(){
   }
 
   await logActivity(editingId?'updated':'created','order',savedId,record.tn,
-    `${customerName(customer_id)} — ${record.product}; stage ${record.stage}; progress ${record.pct}%`);
+    `${customerName(customer_id)} — ${record.product}; category ${record.category}; stage ${record.stage}; progress ${record.pct}%`);
   let emailResult = null;
   if(shouldEmailCustomer && !NEEDS_SETUP){
     emailResult = await sendOrderStatusEmail(savedId);
@@ -1459,6 +1502,9 @@ function fmtDate(d){
   const dt = new Date(d+'T00:00:00');
   if(isNaN(dt)) return d;
   return dt.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+}
+function orderCategory(order){
+  return ORDER_CATEGORIES.includes(order?.category) ? order.category : 'Sourcing';
 }
 function todayInputDate(){
   const now = new Date();
