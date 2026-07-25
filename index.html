@@ -120,14 +120,15 @@ main{max-width:1080px; margin:0 auto; padding:36px 24px 80px; position:relative}
   position:absolute; left:0; top:0; height:100%; border-radius:99px;
   background:linear-gradient(90deg, var(--orange), var(--red)); transition:width 1s ease;
 }
-.route-stops{position:relative;height:48px;margin-top:14px}
+.route-stops{position:relative;height:90px;margin-top:14px}
 .stop{
-  width:120px;text-align:center;position:absolute;left:var(--stop-position);
-  transform:translateX(-50%);
+  width:100px;height:86px;text-align:center;position:absolute;left:var(--stop-position);
+  top:0;transform:translateX(-50%);
 }
 .stop::before{
-  content:""; width:10px; height:10px; border-radius:50%; background:#eef0f2;
-  border:2px solid var(--line); display:block; margin:-25px auto 12px;
+  content:""; position:absolute; left:50%; top:-16px; transform:translate(-50%,-50%);
+  width:10px; height:10px; border-radius:50%; background:#eef0f2;
+  border:2px solid var(--line); display:block; margin:0;
 }
 .stop.past::before{background:var(--orange); border-color:var(--orange)}
 .stop.now::before{visibility:hidden}
@@ -144,8 +145,13 @@ main{max-width:1080px; margin:0 auto; padding:36px 24px 80px; position:relative}
   filter:drop-shadow(0 3px 6px rgba(10,10,10,.25));
 }
 .stage-ship svg{width:100%;height:100%;display:block;transform:rotate(90deg);transform-origin:center}
-.stop span{font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:#9aa0aa; font-weight:700}
-.stop.past span,.stop.now span{color:var(--ink)}
+.stop-label{
+  position:absolute;left:50%;top:0;transform:translateX(-50%);width:96px;
+  font-size:10px;line-height:1.35;letter-spacing:.025em;text-transform:uppercase;
+  color:#9aa0aa;font-weight:700;overflow-wrap:anywhere;
+}
+.stop:nth-child(even) .stop-label{top:38px}
+.stop.past .stop-label,.stop.now .stop-label{color:var(--ink)}
 @media(max-width:640px){
   .preview-modal{padding:18px 14px}
   .preview-modal .order-card{padding:20px 16px}
@@ -203,7 +209,10 @@ main{max-width:1080px; margin:0 auto; padding:36px 24px 80px; position:relative}
     transform:translate(-50%,-50%);
   }
   .preview-modal .stage-ship svg{transform:none}
-  .preview-modal .stop span{
+  .preview-modal .stop-label{
+    position:static;
+    width:auto;
+    transform:none;
     font-size:11px;
     line-height:1.25;
     letter-spacing:.035em;
@@ -1149,7 +1158,7 @@ async function viewOrder(id){
   const stops = routeStages.map((s,i)=>`
     <div class="stop ${i<idx?'past':''} ${i===idx?'now':''}" style="--stop-position:${routeStages.length>1?(i/(routeStages.length-1))*100:0}%">
       ${i===idx?`<span class="stage-ship">${shipSVG()}</span>`:''}
-      <span>${esc(s.name)}</span>
+      <span class="stop-label">${esc(s.name)}</span>
     </div>`).join('');
   const updates = Array.isArray(o.updates) && o.updates.length
     ? o.updates.slice().reverse().map(u=>`
