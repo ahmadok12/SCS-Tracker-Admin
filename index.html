@@ -95,6 +95,9 @@ main{max-width:1080px; margin:0 auto; padding:36px 24px 80px; position:relative}
 .btn.ghost:hover{border-color:var(--red); color:var(--red); background:#fff; transform:none}
 .btn.gold{background:linear-gradient(120deg,var(--orange),var(--red)); color:#fff}
 .btn.gold:hover{filter:brightness(1.08); background:linear-gradient(120deg,var(--orange),var(--red))}
+.btn.whatsapp{background:#128c7e;color:#fff}
+.btn.whatsapp:hover{background:#075e54}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
 .btn.sm{padding:9px 16px; font-size:12.5px; border-radius:999px}
 .hint{color:var(--muted); font-size:13px; margin-top:10px; text-align:center}
 .err{color:var(--red-dark); font-size:14px; margin-top:12px; text-align:center; display:none}
@@ -310,6 +313,12 @@ td .stagechip{
   width:100%; max-width:640px; padding:28px; animation:fade .25s ease; box-shadow:0 30px 70px #0a0a0a2e;
 }
 .modal h2{font-size:24px; margin-bottom:18px; letter-spacing:-.03em}
+.whatsapp-ready-modal{max-width:520px}
+.whatsapp-ready-modal p{color:var(--muted);font-size:14px;line-height:1.55}
+.whatsapp-message-preview{
+  margin-top:16px;padding:15px;border:1px solid #b7e4dc;border-radius:12px;
+  background:#f0fdf9;color:var(--ink);font-size:13px;line-height:1.55;white-space:pre-wrap
+}
 .preview-modal{max-width:980px}
 .preview-modal-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}
 .preview-modal-head h2{margin:0}
@@ -615,6 +624,19 @@ td .stagechip{
   </div>
 </div>
 
+<!-- WHATSAPP UPDATE READY -->
+<div class="modal-bg" id="whatsapp-modal-bg">
+  <div class="modal whatsapp-ready-modal">
+    <h2>Customer update saved</h2>
+    <p id="whatsapp-ready-copy">The WhatsApp update is ready to send.</p>
+    <div class="whatsapp-message-preview" id="whatsapp-message-preview"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" type="button" onclick="closeWhatsAppModal()">Not now</button>
+      <button class="btn whatsapp" id="whatsapp-send-btn" type="button" onclick="sendPendingWhatsApp()">Send on WhatsApp</button>
+    </div>
+  </div>
+</div>
+
 <!-- ORDER FORM MODAL -->
 <div class="modal-bg" id="modal-bg">
   <div class="modal">
@@ -884,6 +906,18 @@ const STAGES = [
   {name:'Delivered',      pct:100},
 ];
 const ORDER_CATEGORIES = ['Sourcing','Shipping','Trading'];
+const STAGE_MESSAGES = {
+  'Inquiry':'We received your inquiry and are reviewing your requirements.',
+  'Quote':'Your quotation is ready for review and approval.',
+  'Payment':'Payment is being processed; production will begin after confirmation.',
+  'Production':'Your order is currently under production.',
+  'Received in China Warehouse':'Your goods have arrived at our China warehouse.',
+  'Quality Check':'Your goods are being checked before shipment.',
+  'Shipping':'Your shipment is on its way to the destination.',
+  'Customs':'Your shipment is undergoing customs clearance.',
+  'Delivered':'Your order has been delivered successfully.'
+};
+const TRACKING_PORTAL_URL = 'https://track.shaikhchinasourcing.com/';
 // ===== Supabase config — fill these in from Settings → API in your Supabase project =====
 const SUPABASE_URL = 'https://eourkizstbgmrqkdwnjd.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rEKWzv2DaUZHhHwBdCJKXg_9jEQkz6k';
@@ -904,6 +938,7 @@ let editingCustomerId = null;
 let orderFilter = {stage:'', customerId:'', category:''};
 let adminPage = 'dashboard';
 let currentAdminNotes = [];
+let pendingWhatsAppOrderId = null;
 
 function currentRole(){ return currentStaff?.role || (NEEDS_SETUP ? 'owner' : 'manager'); }
 function isOwner(){ return currentRole()==='owner'; }
@@ -1079,6 +1114,7 @@ function renderAdmin(){
       <td><div class="table-actions">
         <button class="btn ghost sm" onclick="viewOrder('${o.id}')">View</button>
         <button class="btn ghost sm" onclick="openForm('${o.id}')">Edit</button>
+        <button class="btn whatsapp sm" onclick="openWhatsAppForOrder('${o.id}')" ${c?.mobile?'':'disabled title="Add a mobile number to the customer profile first"'}>WhatsApp</button>
         ${externalUrl(o.asset_url)?`<a class="btn ghost sm" href="${esc(externalUrl(o.asset_url))}" target="_blank" rel="noopener noreferrer" title="View product photos and videos">Photos &amp; Videos ↗</a>`:''}
       </div></td>
     </tr>`;}).join('');
@@ -1880,6 +1916,54 @@ function genTN(){
   const ym = String(d.getFullYear()).slice(2) + String(d.getMonth()+1).padStart(2,'0');
   return `SCS-${ym}-${Math.floor(1000+Math.random()*9000)}`;
 }
+function whatsappNumber(mobile){
+  const raw = String(mobile || '').trim();
+  if(!raw) return '';
+  let number = raw.replace(/\D/g,'');
+  if(raw.startsWith('00')) number = number.slice(2);
+  else if(raw.startsWith('0')) number = `92${number.slice(1)}`;
+  else if(!raw.startsWith('+') && /^3\d{9}$/.test(number)) number = `92${number}`;
+  return /^\d{8,15}$/.test(number) ? number : '';
+}
+function whatsappMessageForOrder(order){
+  const customer = customers.find(c=>c.id===order?.customer_id);
+  const explanation = STAGE_MESSAGES[order?.stage] || 'Your order status has been updated.';
+  return `Hello ${customer?.name || 'Customer'},
+
+Your order ${order?.tn || ''} of ${order?.product || ''} has moved to the ${order?.stage || ''} stage.
+
+${explanation}
+
+Track your order:
+${TRACKING_PORTAL_URL}`;
+}
+function openWhatsAppForOrder(orderId){
+  const order = orders.find(item=>item.id===orderId);
+  if(!order){ toast('Order could not be found'); return; }
+  const customer = customers.find(c=>c.id===order.customer_id);
+  const number = whatsappNumber(customer?.mobile);
+  pendingWhatsAppOrderId = orderId;
+  document.getElementById('whatsapp-message-preview').textContent = whatsappMessageForOrder(order);
+  document.getElementById('whatsapp-ready-copy').textContent = number
+    ? `Ready to send to ${customer.name} at ${customer.mobile}.`
+    : `Add a valid mobile number to ${customer?.name || 'this customer'} before sending this update.`;
+  const sendButton = document.getElementById('whatsapp-send-btn');
+  sendButton.disabled = !number;
+  document.getElementById('whatsapp-modal-bg').classList.add('on');
+}
+function closeWhatsAppModal(){
+  pendingWhatsAppOrderId = null;
+  document.getElementById('whatsapp-modal-bg').classList.remove('on');
+}
+function sendPendingWhatsApp(){
+  const order = orders.find(item=>item.id===pendingWhatsAppOrderId);
+  const customer = customers.find(c=>c.id===order?.customer_id);
+  const number = whatsappNumber(customer?.mobile);
+  if(!order || !number){ toast('Add a valid customer mobile number first'); return; }
+  const url = `https://wa.me/${number}?text=${encodeURIComponent(whatsappMessageForOrder(order))}`;
+  window.open(url,'_blank','noopener,noreferrer');
+  closeWhatsAppModal();
+}
 async function saveOrder(){
   const customer_id = document.getElementById('f-customer-id').value;
   const product = document.getElementById('f-product').value.trim();
@@ -1968,6 +2052,7 @@ async function saveOrder(){
   await loadOrders();
   closeForm();
   renderAdmin();
+  if(shouldEmailCustomer) openWhatsAppForOrder(savedId);
   if(warnings.length) toast('Order saved, but '+warnings.join('; '));
   else if(emailResult?.ok) toast('Order updated — customer email sent');
   else toast(editingId? 'Order updated':'Order created');
