@@ -269,10 +269,63 @@ main{max-width:1080px; margin:0 auto; padding:36px 24px 80px; position:relative}
 .summary-bar-fill{height:100%;background:linear-gradient(90deg,var(--orange),var(--red));border-radius:99px}
 .dashboard-empty{color:var(--muted);font-size:14px;padding:18px 0;text-align:center}
 .order-filter-note{color:var(--muted);font-size:13px;margin-top:3px}
+.order-page-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.view-toggle{
+  display:inline-flex;align-items:center;padding:3px;background:#f3f4f6;border:1px solid var(--line);
+  border-radius:999px
+}
+.view-toggle button{
+  display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--muted);
+  border-radius:999px;padding:7px 11px;font-size:12px;font-weight:750;cursor:pointer
+}
+.view-toggle button svg{width:15px;height:15px}
+.view-toggle button.active{background:#fff;color:var(--ink);box-shadow:0 1px 4px #0a0a0a18}
+.order-card-grid{display:none;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
+.order-card-grid.on{display:grid}
+.orders-table-wrap.view-hidden{display:none}
+.admin-order-card{
+  min-width:0;background:#fff;border:1px solid var(--line);border-radius:16px;padding:17px;
+  box-shadow:0 2px 10px #0a0a0a08;transition:.18s
+}
+.admin-order-card:hover{border-color:#fdba74;box-shadow:0 12px 28px #de291012;transform:translateY(-2px)}
+.admin-order-card-head{display:grid;grid-template-columns:62px minmax(0,1fr);gap:13px;align-items:center}
+.order-thumbnail{
+  width:62px;height:62px;border-radius:14px;display:grid;place-items:center;color:#fff;
+  background:linear-gradient(145deg,var(--orange),var(--red))
+}
+.order-thumbnail.shipping{background:linear-gradient(145deg,#0f766e,#14b8a6)}
+.order-thumbnail.trading{background:linear-gradient(145deg,#1f2937,#6b7280)}
+.order-thumbnail svg{width:34px;height:34px}
+.admin-order-card h3{
+  font-size:17px;line-height:1.22;letter-spacing:-.02em;display:-webkit-box;
+  -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden
+}
+.admin-order-customer{color:var(--muted);font-size:12.5px;font-weight:650;margin-top:5px}
+.order-card-badges{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:14px 0 13px}
+.order-card-badges .stagechip{
+  font-size:10.5px;font-weight:750;padding:5px 9px;border-radius:999px;
+  background:var(--panel);border:1px solid var(--line)
+}
+.order-card-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:13px}
+.order-card-meta div{min-width:0;background:#f8fafc;border:1px solid #eef0f2;border-radius:10px;padding:9px 10px}
+.order-card-meta label{
+  display:block;color:var(--muted);font-size:9.5px;font-weight:750;letter-spacing:.06em;
+  text-transform:uppercase;margin-bottom:3px
+}
+.order-card-meta strong{display:block;font-size:12.5px;overflow-wrap:anywhere}
+.order-card-progress-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.order-card-progress-head span{color:var(--muted);font-size:11px;font-weight:700}
+.order-card-progress-head strong{color:var(--red-dark);font-size:12px}
+.order-card-progress{height:8px;background:#eef0f2;border-radius:999px;overflow:hidden}
+.order-card-progress span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--orange),var(--red))}
+.order-card-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:15px}
+.order-card-actions .btn{width:100%;padding:9px 8px;text-align:center;font-size:11.5px}
 @media(max-width:980px){.dashboard-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:780px){
   .dashboard-grid{grid-template-columns:1fr}
   .summary-row{grid-template-columns:minmax(105px,1fr) 1.4fr auto}
+  .order-page-actions{width:100%;justify-content:space-between}
+  .order-card-grid{grid-template-columns:1fr}
 }
 
 .table-wrap{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); overflow-x:auto; box-shadow:0 2px 10px #0a0a0a08}
@@ -541,20 +594,31 @@ td .stagechip{
             <h2 id="orders-heading">All orders</h2>
             <p class="order-filter-note" id="orders-filter-note">Showing every customer order.</p>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div class="order-page-actions">
+            <div class="view-toggle" role="group" aria-label="Order display">
+              <button id="orders-list-button" type="button" onclick="setOrderView('list')" aria-pressed="true" title="List view">
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3 5h2M8 5h9M3 10h2M8 10h9M3 15h2M8 15h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                List
+              </button>
+              <button id="orders-card-button" type="button" onclick="setOrderView('cards')" aria-pressed="false" title="Card view">
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="2.5" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.7"/><rect x="11.5" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.7"/><rect x="2.5" y="11" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.7"/><rect x="11.5" y="11" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.7"/></svg>
+                Cards
+              </button>
+            </div>
             <button class="btn ghost sm" id="clear-order-filter" style="display:none" onclick="clearOrderFilter()">Show all orders</button>
             <button class="btn gold sm" onclick="openForm()">+ New order</button>
           </div>
         </div>
-        <div class="table-wrap orders-table-wrap">
+        <div class="table-wrap orders-table-wrap" id="orders-list-view">
           <table>
             <thead>
               <tr><th>Customer</th><th>Product</th><th>Category</th><th>Tracking #</th><th>Stage</th><th>Progress</th><th>ETA</th><th></th></tr>
             </thead>
             <tbody id="order-rows"></tbody>
           </table>
-          <div class="empty" id="empty-msg" style="display:none">No orders yet. Click “+ New order” to add your first one.</div>
         </div>
+        <div class="order-card-grid" id="order-cards"></div>
+        <div class="empty" id="empty-msg" style="display:none">No orders yet. Click “+ New order” to add your first one.</div>
       </div>
 
       <div class="admin-page" id="page-users">
@@ -632,6 +696,7 @@ td .stagechip{
     <div class="whatsapp-message-preview" id="whatsapp-message-preview"></div>
     <div class="modal-actions">
       <button class="btn ghost" type="button" onclick="closeWhatsAppModal()">Not now</button>
+      <button class="btn ghost" type="button" onclick="copyPendingWhatsAppMessage()">Copy message</button>
       <button class="btn whatsapp" id="whatsapp-send-btn" type="button" onclick="sendPendingWhatsApp()">Send on WhatsApp</button>
     </div>
   </div>
@@ -936,6 +1001,10 @@ let editingStaffId = null;
 let passwordStaffId = null;
 let editingCustomerId = null;
 let orderFilter = {stage:'', customerId:'', category:''};
+let orderViewMode = (() => {
+  try { return localStorage.getItem('scs-order-view') === 'cards' ? 'cards' : 'list'; }
+  catch { return 'list'; }
+})();
 let adminPage = 'dashboard';
 let currentAdminNotes = [];
 let pendingWhatsAppOrderId = null;
@@ -1054,6 +1123,43 @@ async function checkExistingSession(){
   else await sb.auth.signOut();
 }
 
+function setOrderView(mode){
+  orderViewMode = mode === 'cards' ? 'cards' : 'list';
+  try { localStorage.setItem('scs-order-view', orderViewMode); } catch {}
+  applyOrderView();
+}
+function applyOrderView(){
+  const listView = document.getElementById('orders-list-view');
+  const cardView = document.getElementById('order-cards');
+  const listButton = document.getElementById('orders-list-button');
+  const cardButton = document.getElementById('orders-card-button');
+  if(!listView || !cardView || !listButton || !cardButton) return;
+  const cardsActive = orderViewMode === 'cards';
+  listView.classList.toggle('view-hidden', cardsActive);
+  cardView.classList.toggle('on', cardsActive);
+  listButton.classList.toggle('active', !cardsActive);
+  cardButton.classList.toggle('active', cardsActive);
+  listButton.setAttribute('aria-pressed', String(!cardsActive));
+  cardButton.setAttribute('aria-pressed', String(cardsActive));
+}
+function orderCategoryThumbnail(category){
+  if(category === 'Shipping'){
+    return `<svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+      <path d="M7 25h26l-4 7H12l-5-7Z" fill="currentColor" fill-opacity=".28" stroke="currentColor" stroke-width="2"/>
+      <path d="M12 25V14h16v11M16 14V9h8v5M8 34c2 1.5 4 1.5 6 0 2 1.5 4 1.5 6 0 2 1.5 4 1.5 6 0 2 1.5 4 1.5 6 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>`;
+  }
+  if(category === 'Trading'){
+    return `<svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+      <path d="M8 14h22M25 9l5 5-5 5M32 27H10M15 22l-5 5 5 5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+  }
+  return `<svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+    <circle cx="18" cy="18" r="9" stroke="currentColor" stroke-width="2.6"/>
+    <path d="m25 25 8 8M14 18h8M18 14v8" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+  </svg>`;
+}
+
 function renderAdmin(){
   const tbody = document.getElementById('order-rows');
   const active = orders.filter(o=>!o.is_closed && o.pct<100).length;
@@ -1098,7 +1204,8 @@ function renderAdmin(){
   empty.textContent = orders.length
     ? 'No orders match this dashboard filter.'
     : 'No orders yet. Click “+ New order” to add your first one.';
-  tbody.innerHTML = filteredOrders.slice().sort((a,b)=>a.pct-b.pct).map(o=>{
+  const sortedOrders = filteredOrders.slice().sort((a,b)=>a.pct-b.pct);
+  tbody.innerHTML = sortedOrders.map(o=>{
     const c = customers.find(c=>c.id===o.customer_id);
     return `
     <tr class="row">
@@ -1118,6 +1225,40 @@ function renderAdmin(){
         ${externalUrl(o.asset_url)?`<a class="btn ghost sm" href="${esc(externalUrl(o.asset_url))}" target="_blank" rel="noopener noreferrer" title="View product photos and videos">Photos &amp; Videos ↗</a>`:''}
       </div></td>
     </tr>`;}).join('');
+  document.getElementById('order-cards').innerHTML = sortedOrders.map(o=>{
+    const c = customers.find(customer=>customer.id===o.customer_id);
+    const category = orderCategory(o);
+    return `
+      <article class="admin-order-card">
+        <div class="admin-order-card-head">
+          <div class="order-thumbnail ${category.toLowerCase()}">${orderCategoryThumbnail(category)}</div>
+          <div>
+            <h3 title="${esc(o.product)}">${esc(o.product)}</h3>
+            <div class="admin-order-customer">${esc(c?.name || 'Unknown customer')}${c?.city ? ' · '+esc(c.city) : ''}</div>
+          </div>
+        </div>
+        <div class="order-card-badges">
+          <span class="stagechip">${esc(category)}</span>
+          <span class="stagechip">${esc(o.stage)}</span>
+          ${o.is_closed?'<span class="stagechip closed-chip">Closed</span>':''}
+        </div>
+        <div class="order-card-meta">
+          <div><label>Tracking number</label><strong>${esc(o.tn)}</strong></div>
+          <div><label>Estimated completion</label><strong>${esc(fmtDate(o.eta) || '—')}</strong></div>
+        </div>
+        <div class="order-card-progress-head"><span>Order progress</span><strong>${esc(o.pct)}%</strong></div>
+        <div class="order-card-progress"><span style="width:${Math.max(0,Math.min(100,Number(o.pct)||0))}%"></span></div>
+        <div class="order-card-actions">
+          <button class="btn ghost sm" onclick="viewOrder('${o.id}')">View</button>
+          <button class="btn ghost sm" onclick="openForm('${o.id}')">Edit</button>
+          <button class="btn whatsapp sm" onclick="openWhatsAppForOrder('${o.id}')" ${c?.mobile?'':'disabled title="Add a mobile number to the customer profile first"'}>WhatsApp</button>
+          ${externalUrl(o.asset_url)
+            ? `<a class="btn ghost sm" href="${esc(externalUrl(o.asset_url))}" target="_blank" rel="noopener noreferrer">Photos &amp; Videos ↗</a>`
+            : `<button class="btn ghost sm" type="button" disabled>No media link</button>`}
+        </div>
+      </article>`;
+  }).join('');
+  applyOrderView();
 
   const custBody = document.getElementById('customer-rows');
   document.getElementById('cust-empty-msg').style.display = customers.length? 'none':'block';
@@ -1954,6 +2095,25 @@ function openWhatsAppForOrder(orderId){
 function closeWhatsAppModal(){
   pendingWhatsAppOrderId = null;
   document.getElementById('whatsapp-modal-bg').classList.remove('on');
+}
+async function copyPendingWhatsAppMessage(){
+  const order = orders.find(item=>item.id===pendingWhatsAppOrderId);
+  if(!order){ toast('Order could not be found'); return; }
+  const message = whatsappMessageForOrder(order);
+  try {
+    await navigator.clipboard.writeText(message);
+    toast('WhatsApp message copied');
+  } catch {
+    const textArea = document.createElement('textarea');
+    textArea.value = message;
+    textArea.style.position = 'fixed';
+    textArea.style.opacity = '0';
+    document.body.appendChild(textArea);
+    textArea.select();
+    const copied = document.execCommand('copy');
+    textArea.remove();
+    toast(copied ? 'WhatsApp message copied' : 'Could not copy the message');
+  }
 }
 function sendPendingWhatsApp(){
   const order = orders.find(item=>item.id===pendingWhatsAppOrderId);
