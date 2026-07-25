@@ -515,6 +515,14 @@ td .stagechip{
         </div>
         <div class="field">
           <label class="closed-check">
+            <input id="f-show-assets-customer" type="checkbox">
+            <span>Show product pictures and videos to customer
+              <small>When enabled, the product-files link appears in this order on the customer portal.</small>
+            </span>
+          </label>
+        </div>
+        <div class="field">
+          <label class="closed-check">
             <input id="f-closed" type="checkbox">
             <span>Mark order as closed
               <small>Closed orders are excluded from the in-progress totals.</small>
@@ -1569,6 +1577,7 @@ async function openForm(id){
   assetInput.value = o?.asset_url || '';
   assetInput.dataset.savedValue = o?.asset_url || '';
   renderProductLinkField(!externalUrl(o?.asset_url));
+  document.getElementById('f-show-assets-customer').checked = Boolean(o?.show_asset_to_customer);
   document.getElementById('f-closed').checked = Boolean(o?.is_closed);
   document.getElementById('f-update-date').value = todayInputDate();
   document.getElementById('f-update').value = '';
@@ -1711,6 +1720,11 @@ async function saveOrder(){
   const rawAssetUrl = document.getElementById('f-asset-url').value.trim();
   const assetUrl = externalUrl(rawAssetUrl);
   if(rawAssetUrl && !assetUrl){ toast('Product files link must begin with https://'); return; }
+  const showAssetToCustomer = document.getElementById('f-show-assets-customer').checked;
+  if(showAssetToCustomer && !assetUrl){
+    toast('Add a product pictures/videos link before showing it to the customer');
+    return;
+  }
   const pct = Math.max(0, Math.min(100, parseInt(document.getElementById('f-pct').value||0)));
   const upd = document.getElementById('f-update').value.trim();
   const adminNote = document.getElementById('f-admin-note').value.trim();
@@ -1734,6 +1748,7 @@ async function saveOrder(){
     pct,
     eta: document.getElementById('f-eta').value || null,
     asset_url: assetUrl || null,
+    show_asset_to_customer: showAssetToCustomer,
     is_closed: document.getElementById('f-closed').checked,
     updates,
   };
