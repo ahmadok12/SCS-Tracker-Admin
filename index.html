@@ -270,6 +270,25 @@ main{max-width:1080px; margin:0 auto; padding:36px 24px 80px; position:relative}
 .dashboard-empty{color:var(--muted);font-size:14px;padding:18px 0;text-align:center}
 .order-filter-note{color:var(--muted);font-size:13px;margin-top:3px}
 .order-page-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.order-tools{
+  display:grid;grid-template-columns:minmax(240px,1.45fr) repeat(5,minmax(135px,.8fr));
+  gap:10px;margin:0 0 16px;padding:14px;background:#fff;border:1px solid var(--line);
+  border-radius:16px;box-shadow:0 2px 10px #0a0a0a08
+}
+.order-tool{position:relative;min-width:0}
+.order-tool label{
+  display:block;color:var(--muted);font-size:9.5px;font-weight:800;letter-spacing:.065em;
+  text-transform:uppercase;margin:0 0 5px 3px
+}
+.order-tool input,.order-tool select{
+  width:100%;height:42px;background:#fff;border:1px solid var(--line);border-radius:10px;
+  color:var(--ink);font:inherit;font-size:13px;font-weight:650;padding:0 12px;outline:none
+}
+.order-tool input{padding-left:39px}
+.order-tool input:focus,.order-tool select:focus{border-color:var(--orange);box-shadow:0 0 0 3px #ff8a1f1a}
+.order-search-icon{
+  position:absolute;left:13px;bottom:12px;width:17px;height:17px;color:var(--muted);pointer-events:none
+}
 .view-toggle{
   display:inline-flex;align-items:center;padding:3px;background:#f3f4f6;border:1px solid var(--line);
   border-radius:999px
@@ -335,13 +354,17 @@ main{max-width:1080px; margin:0 auto; padding:36px 24px 80px; position:relative}
 .order-card-progress span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--orange),var(--red))}
 .order-card-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:15px}
 .order-card-actions .btn{width:100%;padding:9px 8px;text-align:center;font-size:11.5px}
+@media(max-width:1180px){.order-tools{grid-template-columns:repeat(3,minmax(150px,1fr))}}
 @media(max-width:980px){.dashboard-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:780px){
   .dashboard-grid{grid-template-columns:1fr}
   .summary-row{grid-template-columns:minmax(105px,1fr) 1.4fr auto}
   .order-page-actions{width:100%;justify-content:space-between}
+  .order-tools{grid-template-columns:1fr 1fr;padding:12px}
+  .order-tool.search-tool{grid-column:1/-1}
   .order-card-grid{grid-template-columns:1fr}
 }
+@media(max-width:520px){.order-tools{grid-template-columns:1fr}.order-tool.search-tool{grid-column:auto}}
 
 .table-wrap{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); overflow-x:auto; box-shadow:0 2px 10px #0a0a0a08}
 table{width:100%; border-collapse:collapse; min-width:760px}
@@ -623,6 +646,52 @@ td .stagechip{
             </div>
             <button class="btn ghost sm" id="clear-order-filter" style="display:none" onclick="clearOrderFilter()">Show all orders</button>
             <button class="btn gold sm" onclick="openForm()">+ New order</button>
+          </div>
+        </div>
+        <div class="order-tools" aria-label="Search, filter and sort orders">
+          <div class="order-tool search-tool">
+            <label for="order-search">Search orders</label>
+            <svg class="order-search-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" stroke-width="1.8"/><path d="m13 13 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <input id="order-search" type="search" placeholder="Customer, product or tracking #" oninput="updateOrderControls()">
+          </div>
+          <div class="order-tool">
+            <label for="order-stage-filter">Stage</label>
+            <select id="order-stage-filter" onchange="updateOrderControls()">
+              <option value="">All stages</option>
+            </select>
+          </div>
+          <div class="order-tool">
+            <label for="order-category-filter">Category</label>
+            <select id="order-category-filter" onchange="updateOrderControls()">
+              <option value="">All categories</option>
+            </select>
+          </div>
+          <div class="order-tool">
+            <label for="order-customer-filter">Customer</label>
+            <select id="order-customer-filter" onchange="updateOrderControls()">
+              <option value="">All customers</option>
+            </select>
+          </div>
+          <div class="order-tool">
+            <label for="order-state-filter">Order status</label>
+            <select id="order-state-filter" onchange="updateOrderControls()">
+              <option value="">Any status</option>
+              <option value="active">In progress</option>
+              <option value="delivered">Delivered</option>
+              <option value="closed">Closed</option>
+            </select>
+          </div>
+          <div class="order-tool">
+            <label for="order-sort">Sort by</label>
+            <select id="order-sort" onchange="updateOrderControls()">
+              <option value="newest">Recently added</option>
+              <option value="oldest">Oldest added</option>
+              <option value="eta_soon">ETA: soonest</option>
+              <option value="eta_latest">ETA: latest</option>
+              <option value="progress_desc">Progress: high to low</option>
+              <option value="progress_asc">Progress: low to high</option>
+              <option value="customer_az">Customer: A–Z</option>
+            </select>
           </div>
         </div>
         <div class="table-wrap orders-table-wrap" id="orders-list-view">
@@ -1031,12 +1100,15 @@ let activityLogs = [];
 let editingStaffId = null;
 let passwordStaffId = null;
 let editingCustomerId = null;
-let orderFilter = {stage:'', customerId:'', category:''};
+function emptyOrderFilter(){ return {stage:'', customerId:'', category:'', state:''}; }
+let orderFilter = emptyOrderFilter();
+let orderSearch = '';
+let orderSort = 'newest';
 let orderViewMode = (() => {
   try { return localStorage.getItem('scs-order-view') === 'cards' ? 'cards' : 'list'; }
   catch { return 'list'; }
 })();
-let adminPage = 'dashboard';
+let adminPage = 'orders';
 let currentAdminNotes = [];
 let pendingWhatsAppOrderId = null;
 
@@ -1131,8 +1203,10 @@ async function doLogout(){
 }
 async function enterAdmin(){
   unlocked = true;
-  orderFilter = {stage:'', customerId:'', category:''};
-  adminPage = 'dashboard';
+  orderFilter = emptyOrderFilter();
+  orderSearch = '';
+  orderSort = 'newest';
+  adminPage = 'orders';
   document.getElementById('admin-login').style.display='none';
   document.getElementById('admin-panel').style.display='block';
   await loadCustomers();
@@ -1140,7 +1214,7 @@ async function enterAdmin(){
   await loadStaff();
   if(isOwner()) await loadActivity();
   renderAdmin();
-  showAdminPage('dashboard', false);
+  showAdminPage('orders', false);
 }
 async function checkExistingSession(){
   if(NEEDS_SETUP) return;
@@ -1191,6 +1265,74 @@ function orderCategoryThumbnail(category){
   </svg>`;
 }
 
+function syncOrderControls(){
+  const stageSelect = document.getElementById('order-stage-filter');
+  const categorySelect = document.getElementById('order-category-filter');
+  const customerSelect = document.getElementById('order-customer-filter');
+  if(!stageSelect || !categorySelect || !customerSelect) return;
+  stageSelect.innerHTML = `<option value="">All stages</option>` +
+    STAGES.map(stage=>`<option value="${esc(stage.name)}">${esc(stage.name)}</option>`).join('');
+  categorySelect.innerHTML = `<option value="">All categories</option>` +
+    ORDER_CATEGORIES.map(category=>`<option value="${esc(category)}">${esc(category)}</option>`).join('');
+  customerSelect.innerHTML = `<option value="">All customers</option>` +
+    customers.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(customer=>
+      `<option value="${esc(customer.id)}">${esc(customer.name)}</option>`).join('');
+  document.getElementById('order-search').value = orderSearch;
+  stageSelect.value = orderFilter.stage;
+  categorySelect.value = orderFilter.category;
+  customerSelect.value = orderFilter.customerId;
+  document.getElementById('order-state-filter').value = orderFilter.state;
+  document.getElementById('order-sort').value = orderSort;
+}
+function updateOrderControls(){
+  orderSearch = document.getElementById('order-search').value.trim();
+  orderFilter = {
+    stage:document.getElementById('order-stage-filter').value,
+    category:document.getElementById('order-category-filter').value,
+    customerId:document.getElementById('order-customer-filter').value,
+    state:document.getElementById('order-state-filter').value
+  };
+  orderSort = document.getElementById('order-sort').value || 'newest';
+  renderAdmin();
+}
+function orderSearchText(order){
+  const customer = customers.find(item=>item.id===order.customer_id);
+  return [
+    order.tn, order.product, order.stage, orderCategory(order),
+    customer?.name, customer?.city, customer?.mobile, customer?.email
+  ].filter(Boolean).join(' ').toLocaleLowerCase();
+}
+function orderTimestamp(order){
+  const timestamp = Date.parse(order.created_at || '');
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+function sortOrdersForAdmin(list){
+  const originalIndex = new Map(orders.map((order,index)=>[order.id,index]));
+  return list.slice().sort((a,b)=>{
+    const customerA = customerName(a.customer_id);
+    const customerB = customerName(b.customer_id);
+    const fallbackNewest = (originalIndex.get(b.id) ?? 0) - (originalIndex.get(a.id) ?? 0);
+    if(orderSort==='oldest'){
+      const difference = orderTimestamp(a)-orderTimestamp(b);
+      return difference || -fallbackNewest;
+    }
+    if(orderSort==='eta_soon'){
+      const aEta = Date.parse(a.eta || '') || Number.MAX_SAFE_INTEGER;
+      const bEta = Date.parse(b.eta || '') || Number.MAX_SAFE_INTEGER;
+      return aEta-bEta || fallbackNewest;
+    }
+    if(orderSort==='eta_latest'){
+      const aEta = Date.parse(a.eta || '') || 0;
+      const bEta = Date.parse(b.eta || '') || 0;
+      return bEta-aEta || fallbackNewest;
+    }
+    if(orderSort==='progress_desc') return (Number(b.pct)||0)-(Number(a.pct)||0) || fallbackNewest;
+    if(orderSort==='progress_asc') return (Number(a.pct)||0)-(Number(b.pct)||0) || fallbackNewest;
+    if(orderSort==='customer_az') return customerA.localeCompare(customerB) || fallbackNewest;
+    return orderTimestamp(b)-orderTimestamp(a) || fallbackNewest;
+  });
+}
+
 function renderAdmin(){
   const tbody = document.getElementById('order-rows');
   const active = orders.filter(o=>!o.is_closed && o.pct<100).length;
@@ -1203,6 +1345,7 @@ function renderAdmin(){
   document.getElementById('new-customer-btn').style.display = canManageUsers() ? 'inline-block' : 'none';
   document.getElementById('nav-users').style.display = canManageUsers() ? 'inline-block' : 'none';
   if(adminPage==='users' && !canManageUsers()) showAdminPage('dashboard', false);
+  syncOrderControls();
   document.getElementById('stats').innerHTML = `
     <button class="stat action" onclick="openAllOrders()"><b>${orders.length}</b><span>Total orders · open</span></button>
     ${canManageUsers()
@@ -1212,30 +1355,39 @@ function renderAdmin(){
     <div class="stat"><b>${shipping}</b><span>On the water</span></div>
     <button class="stat action" onclick="filterOrdersByStatus('Delivered')"><b>${delivered}</b><span>Delivered · open</span></button>`;
   renderDashboardSummaries();
+  const normalizedSearch = orderSearch.toLocaleLowerCase();
   const filteredOrders = orders.filter(o=>
     (!orderFilter.stage || o.stage===orderFilter.stage) &&
     (!orderFilter.customerId || o.customer_id===orderFilter.customerId) &&
-    (!orderFilter.category || orderCategory(o)===orderFilter.category)
+    (!orderFilter.category || orderCategory(o)===orderFilter.category) &&
+    (!orderFilter.state ||
+      (orderFilter.state==='active' && !o.is_closed && Number(o.pct)<100) ||
+      (orderFilter.state==='delivered' && Number(o.pct)>=100) ||
+      (orderFilter.state==='closed' && Boolean(o.is_closed))) &&
+    (!normalizedSearch || orderSearchText(o).includes(normalizedSearch))
   );
   const selectedCustomer = customers.find(c=>c.id===orderFilter.customerId);
-  const filterLabel = orderFilter.stage
-    ? `Status: ${orderFilter.stage}`
-    : orderFilter.customerId
-      ? `Customer: ${selectedCustomer?.name || 'Unknown'}`
-      : orderFilter.category
-        ? `Category: ${orderFilter.category}`
-        : '';
-  document.getElementById('orders-heading').textContent = filterLabel || 'All orders';
-  document.getElementById('orders-filter-note').textContent = filterLabel
-    ? `${filteredOrders.length} matching order${filteredOrders.length===1?'':'s'}.`
-    : `Showing all ${orders.length} order${orders.length===1?'':'s'}.`;
-  document.getElementById('clear-order-filter').style.display = filterLabel ? 'inline-block' : 'none';
+  const stateLabels = {active:'In progress', delivered:'Delivered', closed:'Closed'};
+  const activeFilters = [
+    normalizedSearch ? `Search: “${orderSearch}”` : '',
+    orderFilter.stage ? `Stage: ${orderFilter.stage}` : '',
+    orderFilter.category ? `Category: ${orderFilter.category}` : '',
+    orderFilter.customerId ? `Customer: ${selectedCustomer?.name || 'Unknown'}` : '',
+    orderFilter.state ? `Status: ${stateLabels[orderFilter.state]}` : ''
+  ].filter(Boolean);
+  document.getElementById('orders-heading').textContent = activeFilters.length ? 'Filtered orders' : 'All orders';
+  document.getElementById('orders-filter-note').textContent = activeFilters.length
+    ? `${filteredOrders.length} matching order${filteredOrders.length===1?'':'s'} · ${activeFilters.join(' · ')}`
+    : `Showing all ${orders.length} order${orders.length===1?'':'s'}, sorted by ${document.getElementById('order-sort').selectedOptions[0].text.toLocaleLowerCase()}.`;
+  document.getElementById('clear-order-filter').textContent = 'Reset';
+  document.getElementById('clear-order-filter').style.display =
+    activeFilters.length || orderSort!=='newest' ? 'inline-block' : 'none';
   const empty = document.getElementById('empty-msg');
   empty.style.display = filteredOrders.length ? 'none':'block';
   empty.textContent = orders.length
-    ? 'No orders match this dashboard filter.'
+    ? 'No orders match your search and filters. Try changing or resetting them.'
     : 'No orders yet. Click “+ New order” to add your first one.';
-  const sortedOrders = filteredOrders.slice().sort((a,b)=>a.pct-b.pct);
+  const sortedOrders = sortOrdersForAdmin(filteredOrders);
   tbody.innerHTML = sortedOrders.map(o=>{
     const c = customers.find(c=>c.id===o.customer_id);
     const category = orderCategory(o);
@@ -1371,26 +1523,33 @@ function renderDashboardSummaries(){
 }
 
 function filterOrdersByStatus(stage){
-  orderFilter = {stage, customerId:'', category:''};
+  orderFilter = {...emptyOrderFilter(), stage};
+  orderSearch = '';
   renderAdmin();
   showAdminPage('orders');
 }
 function filterOrdersByCustomer(customerId){
-  orderFilter = {stage:'', customerId, category:''};
+  orderFilter = {...emptyOrderFilter(), customerId};
+  orderSearch = '';
   renderAdmin();
   showAdminPage('orders');
 }
 function filterOrdersByCategory(category){
-  orderFilter = {stage:'', customerId:'', category};
+  orderFilter = {...emptyOrderFilter(), category};
+  orderSearch = '';
   renderAdmin();
   showAdminPage('orders');
 }
 function clearOrderFilter(){
-  orderFilter = {stage:'', customerId:'', category:''};
+  orderFilter = emptyOrderFilter();
+  orderSearch = '';
+  orderSort = 'newest';
   renderAdmin();
 }
 function openAllOrders(){
-  orderFilter = {stage:'', customerId:'', category:''};
+  orderFilter = emptyOrderFilter();
+  orderSearch = '';
+  orderSort = 'newest';
   renderAdmin();
   showAdminPage('orders');
 }
