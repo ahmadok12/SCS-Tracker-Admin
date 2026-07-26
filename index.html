@@ -366,6 +366,72 @@ main{max-width:1080px; margin:0 auto; padding:36px 24px 80px; position:relative}
 }
 @media(max-width:520px){.order-tools{grid-template-columns:1fr}.order-tool.search-tool{grid-column:auto}}
 
+/* ---------- centralized leads ---------- */
+.lead-stats{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:12px;margin-bottom:18px}
+.lead-stat{
+  width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:14px;
+  padding:16px;color:var(--ink);box-shadow:0 2px 10px #0a0a0a08
+}
+.lead-stat.action:hover{border-color:#fdba74;background:#fff7ed;transform:translateY(-1px)}
+.lead-stat b{display:block;color:var(--red);font-size:28px;letter-spacing:-.04em}
+.lead-stat span{display:block;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+.lead-tools{
+  display:grid;grid-template-columns:minmax(250px,1.5fr) repeat(3,minmax(145px,.7fr));
+  gap:10px;margin:0 0 16px;padding:14px;background:#fff;border:1px solid var(--line);
+  border-radius:16px;box-shadow:0 2px 10px #0a0a0a08
+}
+.lead-source{
+  display:inline-flex;align-items:center;gap:6px;max-width:190px;padding:5px 10px;border-radius:999px;
+  color:#3730a3;background:#eef2ff;border:1px solid #c7d2fe;font-size:11px;font-weight:750
+}
+.lead-source::before{content:"";width:6px;height:6px;border-radius:50%;background:#6366f1;flex:none}
+.lead-status{
+  display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;border:1px solid var(--line);
+  background:#f8fafc;color:#475569;font-size:11px;font-weight:800;white-space:nowrap
+}
+.lead-status.new{background:#fff1ed;color:#b91c0c;border-color:#fecaca}
+.lead-status.contacted{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+.lead-status.follow_up{background:#fff7ed;color:#9a3412;border-color:#fed7aa}
+.lead-status.quoted{background:#faf5ff;color:#7e22ce;border-color:#e9d5ff}
+.lead-status.converted{background:#ecfdf5;color:#047857;border-color:#a7f3d0}
+.lead-status.lost{background:#f3f4f6;color:#6b7280;border-color:#d1d5db}
+.lead-contact{display:grid;gap:2px}
+.lead-contact strong{font-size:13px}
+.lead-contact a,.lead-contact span{color:var(--muted);font-size:11px;text-decoration:none}
+.lead-product{max-width:250px}
+.lead-product strong{display:block;font-size:13px}
+.lead-product span{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.lead-dates{font-size:11px;color:var(--muted);line-height:1.65;white-space:nowrap}
+.lead-dates b{color:var(--ink);font-weight:750}
+.lead-dates .due{color:var(--red-dark)}
+.lead-actions{display:flex;gap:6px;flex-wrap:wrap}
+.lead-actions .btn{padding:8px 11px}
+.lead-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.lead-detail-grid .form-full{grid-column:1/-1}
+.lead-detail-grid label{font-size:11px;color:var(--muted);font-weight:750}
+.lead-detail-grid input,.lead-detail-grid select,.lead-detail-grid textarea{
+  width:100%;margin-top:6px;background:#fff;border:1px solid var(--line);border-radius:10px;
+  padding:11px 12px;color:var(--ink);font-size:13px
+}
+.lead-readonly{
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;
+  color:var(--muted);font-size:13px;line-height:1.65;margin-bottom:14px;overflow-wrap:anywhere
+}
+.lead-readonly strong{color:var(--ink)}
+.lead-setup-note{
+  display:none;margin:0 0 16px;padding:13px 15px;border-radius:12px;background:#fff7ed;
+  border:1px solid #fed7aa;color:#9a3412;font-size:13px;font-weight:650
+}
+@media(max-width:850px){
+  .lead-stats{grid-template-columns:1fr 1fr}
+  .lead-tools{grid-template-columns:1fr 1fr}
+  .lead-tools .search-tool{grid-column:1/-1}
+}
+@media(max-width:560px){
+  .lead-stats,.lead-tools,.lead-detail-grid{grid-template-columns:1fr}
+  .lead-tools .search-tool,.lead-detail-grid .form-full{grid-column:auto}
+}
+
 .table-wrap{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); overflow-x:auto; box-shadow:0 2px 10px #0a0a0a08}
 table{width:100%; border-collapse:collapse; min-width:760px}
 th{
@@ -588,6 +654,7 @@ td .stagechip{
       <nav class="admin-nav" aria-label="Admin pages">
         <button id="nav-dashboard" onclick="showAdminPage('dashboard')">Dashboard</button>
         <button id="nav-orders" onclick="showAdminPage('orders')">Orders</button>
+        <button id="nav-leads" onclick="showAdminPage('leads')">Leads <span id="lead-nav-count"></span></button>
         <button id="nav-users" onclick="showAdminPage('users')">Users</button>
       </nav>
 
@@ -704,6 +771,64 @@ td .stagechip{
         </div>
         <div class="order-card-grid" id="order-cards"></div>
         <div class="empty" id="empty-msg" style="display:none">No orders yet. Click “+ New order” to add your first one.</div>
+      </div>
+
+      <div class="admin-page" id="page-leads">
+        <div class="section-head" style="margin-top:0">
+          <div>
+            <h2>Central lead inbox</h2>
+            <p class="order-filter-note" id="leads-filter-note">Inquiries received across all connected websites.</p>
+          </div>
+          <button class="btn ghost sm" onclick="loadLeads().then(renderLeads)">Refresh</button>
+        </div>
+        <div class="lead-setup-note" id="lead-setup-note">
+          The leads database has not been installed yet. Run the supplied Supabase setup SQL, then refresh this page.
+        </div>
+        <div class="lead-stats">
+          <button class="lead-stat action" onclick="filterLeadsByStatus('')"><b id="lead-stat-total">0</b><span>Total leads</span></button>
+          <button class="lead-stat action" onclick="filterLeadsByStatus('new')"><b id="lead-stat-new">0</b><span>New</span></button>
+          <button class="lead-stat action" onclick="filterLeadsByStatus('follow_up')"><b id="lead-stat-due">0</b><span>Follow-up due</span></button>
+          <button class="lead-stat action" onclick="filterLeadsByStatus('converted')"><b id="lead-stat-converted">0</b><span>Converted</span></button>
+        </div>
+        <div class="lead-tools" aria-label="Search, filter and sort leads">
+          <div class="order-tool search-tool">
+            <label for="lead-search">Search leads</label>
+            <svg class="order-search-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" stroke-width="1.8"/><path d="m13 13 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <input id="lead-search" type="search" placeholder="Name, phone, product or business" oninput="updateLeadControls()">
+          </div>
+          <div class="order-tool">
+            <label for="lead-source-filter">Website source</label>
+            <select id="lead-source-filter" onchange="updateLeadControls()"><option value="">All websites</option></select>
+          </div>
+          <div class="order-tool">
+            <label for="lead-status-filter">Lead status</label>
+            <select id="lead-status-filter" onchange="updateLeadControls()">
+              <option value="">All statuses</option>
+              <option value="new">New</option>
+              <option value="contacted">Contacted</option>
+              <option value="follow_up">Follow-up</option>
+              <option value="quoted">Quoted</option>
+              <option value="converted">Converted</option>
+              <option value="lost">Lost</option>
+            </select>
+          </div>
+          <div class="order-tool">
+            <label for="lead-sort">Sort by</label>
+            <select id="lead-sort" onchange="updateLeadControls()">
+              <option value="newest">Recently received</option>
+              <option value="oldest">Oldest received</option>
+              <option value="follow_up">Next follow-up</option>
+              <option value="name">Name A–Z</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Lead</th><th>Requirement</th><th>Source</th><th>Status</th><th>Received / follow-up</th><th></th></tr></thead>
+            <tbody id="lead-rows"></tbody>
+          </table>
+          <div class="empty" id="lead-empty-msg">No leads have been received yet.</div>
+        </div>
       </div>
 
       <div class="admin-page" id="page-users">
@@ -1055,6 +1180,51 @@ td .stagechip{
   </div>
 </div>
 
+<!-- LEAD FOLLOW-UP MODAL -->
+<div class="modal-bg" id="lead-modal-bg">
+  <div class="modal">
+    <div class="preview-modal-head">
+      <div>
+        <h2 id="lead-modal-title">Lead details</h2>
+        <p id="lead-modal-source" style="color:var(--muted);font-size:12px;margin-top:3px"></p>
+      </div>
+      <button class="btn ghost sm" onclick="closeLeadModal()">Close</button>
+    </div>
+    <div class="lead-readonly" id="lead-modal-details"></div>
+    <div class="lead-detail-grid">
+      <label>Status
+        <select id="lead-edit-status">
+          <option value="new">New</option>
+          <option value="contacted">Contacted</option>
+          <option value="follow_up">Follow-up</option>
+          <option value="quoted">Quoted</option>
+          <option value="converted">Converted</option>
+          <option value="lost">Lost</option>
+        </select>
+      </label>
+      <label>Next follow-up
+        <input id="lead-edit-follow-up" type="date">
+      </label>
+      <label>Assigned to
+        <select id="lead-edit-assigned"><option value="">Unassigned</option></select>
+      </label>
+      <label>Last contacted
+        <input id="lead-edit-contacted" type="datetime-local">
+      </label>
+      <label class="form-full">Admin notes
+        <textarea id="lead-edit-notes" rows="5" placeholder="Add follow-up notes, quotation details or next steps."></textarea>
+      </label>
+    </div>
+    <div class="modal-actions" style="justify-content:space-between">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn whatsapp sm" id="lead-modal-whatsapp" onclick="openLeadWhatsApp()">WhatsApp</button>
+        <button class="btn ghost sm" id="lead-modal-email" onclick="openLeadEmail()">Email</button>
+      </div>
+      <button class="btn" id="lead-save-button" onclick="saveLead()">Save follow-up</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1097,6 +1267,12 @@ let custUnlocked = false; // customer session
 let currentStaff = null;
 let staff = [];
 let activityLogs = [];
+let leads = [];
+let leadsAvailable = true;
+let editingLeadId = null;
+let leadSearch = '';
+let leadFilter = {source:'', status:''};
+let leadSort = 'newest';
 let editingStaffId = null;
 let passwordStaffId = null;
 let editingCustomerId = null;
@@ -1143,6 +1319,18 @@ const seed = () => {
        {t:'2026-07-04', msg:'Cleared Karachi customs.'},
        {t:'2026-07-05', msg:'Delivered to warehouse. Order complete — thank you!'}]},
   ];
+  leads = [
+    {id:crypto.randomUUID(),name:'Hamza Electronics',business:'Hamza Mobile',phone:'+92 300 5550182',
+     email:'hamza@example.com',country:'Pakistan',product:'OLED mobile screens',estimated_quantity:'500 units',
+     message:'Need Samsung-compatible OLED displays and price for mixed models.',source_code:'mobile_parts',
+     source_name:'Mobile Parts Website',source_url:'https://mobile.example.com',category:'Mobile Parts',status:'new',
+     created_at:new Date().toISOString()},
+    {id:crypto.randomUUID(),name:'Adeel Auto Store',business:'Adeel Autos',phone:'+92 321 5550100',
+     email:'adeel@example.com',country:'Pakistan',product:'LED headlights',estimated_quantity:'200 pairs',
+     message:'Looking for private-label headlights for Japanese vehicles.',source_code:'auto_parts',
+     source_name:'Auto Parts Website',source_url:'https://auto.example.com',category:'Auto Parts',status:'follow_up',
+     next_follow_up:new Date().toISOString().slice(0,10),created_at:new Date(Date.now()-86400000).toISOString()}
+  ];
 };
 
 async function loadOrders(){
@@ -1172,6 +1360,20 @@ async function loadActivity(){
   const {data, error} = await sb.from('activity_logs').select('*').order('created_at',{ascending:false}).limit(250);
   if(error){ activityLogs = []; return; }
   activityLogs = data || [];
+}
+async function loadLeads(){
+  if(NEEDS_SETUP) return;
+  const {data, error} = await sb.from('leads').select('*').order('created_at',{ascending:false});
+  leadsAvailable = !error;
+  if(error){
+    leads = [];
+    const setupNote = document.getElementById('lead-setup-note');
+    if(setupNote) setupNote.style.display = 'block';
+    return;
+  }
+  leads = data || [];
+  const setupNote = document.getElementById('lead-setup-note');
+  if(setupNote) setupNote.style.display = 'none';
 }
 function customerName(id){ return customers.find(c=>c.id===id)?.name || 'Unknown customer'; }
 
@@ -1212,9 +1414,11 @@ async function enterAdmin(){
   document.getElementById('admin-panel').style.display='block';
   await loadCustomers();
   await loadOrders();
+  await loadLeads();
   await loadStaff();
   if(isOwner()) await loadActivity();
   renderAdmin();
+  renderLeads();
   showAdminPage('orders', false);
 }
 async function checkExistingSession(){
@@ -1339,8 +1543,10 @@ function renderAdmin(){
   const active = orders.filter(o=>!o.is_closed && o.pct<100).length;
   const shipping = orders.filter(o=>!o.is_closed && (o.stage==='Shipping'||o.stage==='Customs')).length;
   const delivered = orders.filter(o=>o.pct>=100).length;
+  const newLeads = leads.filter(lead=>lead.status==='new').length;
   const signedIn = currentStaff?.name || currentStaff?.email || (NEEDS_SETUP ? 'Demo Administrator' : 'Admin');
   document.getElementById('signed-in-user').innerHTML = `<span class="staff-dot"></span>${esc(signedIn)} · ${esc(currentRole())}`;
+  document.getElementById('lead-nav-count').textContent = newLeads ? `(${newLeads})` : '';
   document.getElementById('team-section').style.display = canManageUsers() ? 'block' : 'none';
   document.getElementById('activity-section').style.display = isOwner() ? 'block' : 'none';
   document.getElementById('new-customer-btn').style.display = canManageUsers() ? 'inline-block' : 'none';
@@ -1354,7 +1560,8 @@ function renderAdmin(){
       : `<div class="stat"><b>${customers.length}</b><span>Customers</span></div>`}
     <div class="stat"><b>${active}</b><span>In progress</span></div>
     <div class="stat"><b>${shipping}</b><span>On the water</span></div>
-    <button class="stat action" onclick="filterOrdersByStatus('Delivered')"><b>${delivered}</b><span>Delivered · open</span></button>`;
+    <button class="stat action" onclick="filterOrdersByStatus('Delivered')"><b>${delivered}</b><span>Delivered · open</span></button>
+    <button class="stat action" onclick="showAdminPage('leads')"><b>${newLeads}</b><span>New leads · open</span></button>`;
   renderDashboardSummaries();
   const normalizedSearch = orderSearch.toLocaleLowerCase();
   const filteredOrders = orders.filter(o=>
@@ -1469,6 +1676,7 @@ function renderAdmin(){
     </tr>`).join('');
   renderStaff();
   renderActivity();
+  renderLeads();
 }
 
 function showAdminPage(page, scroll=true){
@@ -1480,15 +1688,222 @@ function showAdminPage(page, scroll=true){
   const meta = {
     dashboard:['Dashboard','A compact overview of all customer orders.'],
     orders:['Order management','View, create and update customer orders.'],
+    leads:['Lead management','Follow up inquiries received across all connected websites.'],
     users:['User management','Manage customer access, team users and account activity.']
   };
-  ['dashboard','orders','users'].forEach(name=>{
+  ['dashboard','orders','leads','users'].forEach(name=>{
     document.getElementById(`page-${name}`).classList.toggle('on', name===page);
     document.getElementById(`nav-${name}`).classList.toggle('active', name===page);
   });
   document.getElementById('admin-page-title').textContent = meta[page][0];
   document.getElementById('admin-page-subtitle').textContent = meta[page][1];
   if(scroll) window.scrollTo({top:0,behavior:'smooth'});
+}
+
+const LEAD_STATUS_LABELS = {
+  new:'New', contacted:'Contacted', follow_up:'Follow-up',
+  quoted:'Quoted', converted:'Converted', lost:'Lost'
+};
+function leadStatusLabel(status){ return LEAD_STATUS_LABELS[status] || 'New'; }
+function leadSourceName(lead){ return lead.source_name || lead.source_code || 'Website'; }
+function leadDate(value, includeTime=false){
+  if(!value) return '—';
+  const date = new Date(value);
+  if(Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('en-GB', includeTime
+    ? {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}
+    : {day:'numeric',month:'short',year:'numeric'});
+}
+function datetimeLocalValue(value){
+  if(!value) return '';
+  const date = new Date(value);
+  if(Number.isNaN(date.getTime())) return '';
+  return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16);
+}
+function leadSearchText(lead){
+  return [
+    lead.name,lead.business,lead.phone,lead.email,lead.country,lead.product,
+    lead.estimated_quantity,lead.message,lead.source_name,lead.source_code,lead.category
+  ].filter(Boolean).join(' ').toLocaleLowerCase();
+}
+function updateLeadControls(){
+  leadSearch = document.getElementById('lead-search').value.trim();
+  leadFilter = {
+    source:document.getElementById('lead-source-filter').value,
+    status:document.getElementById('lead-status-filter').value
+  };
+  leadSort = document.getElementById('lead-sort').value || 'newest';
+  renderLeads();
+}
+function filterLeadsByStatus(status){
+  leadFilter.status = status;
+  document.getElementById('lead-status-filter').value = status;
+  renderLeads();
+  showAdminPage('leads');
+}
+function renderLeads(){
+  const rows = document.getElementById('lead-rows');
+  if(!rows) return;
+  const today = todayInputDate();
+  const newCount = leads.filter(lead=>lead.status==='new').length;
+  const dueCount = leads.filter(lead=>
+    lead.next_follow_up && lead.next_follow_up<=today && !['converted','lost'].includes(lead.status)
+  ).length;
+  const convertedCount = leads.filter(lead=>lead.status==='converted').length;
+  document.getElementById('lead-stat-total').textContent = leads.length;
+  document.getElementById('lead-stat-new').textContent = newCount;
+  document.getElementById('lead-stat-due').textContent = dueCount;
+  document.getElementById('lead-stat-converted').textContent = convertedCount;
+  const sourceSelect = document.getElementById('lead-source-filter');
+  const sourceValue = leadFilter.source;
+  const sources = [...new Map(leads.map(lead=>[
+    lead.source_code || leadSourceName(lead),
+    leadSourceName(lead)
+  ])).entries()].sort((a,b)=>a[1].localeCompare(b[1]));
+  sourceSelect.innerHTML = `<option value="">All websites</option>` +
+    sources.map(([code,name])=>`<option value="${esc(code)}">${esc(name)}</option>`).join('');
+  sourceSelect.value = sourceValue;
+  document.getElementById('lead-search').value = leadSearch;
+  document.getElementById('lead-status-filter').value = leadFilter.status;
+  document.getElementById('lead-sort').value = leadSort;
+
+  const normalizedSearch = leadSearch.toLocaleLowerCase();
+  let filtered = leads.filter(lead=>
+    (!leadFilter.source || (lead.source_code || leadSourceName(lead))===leadFilter.source) &&
+    (!leadFilter.status || lead.status===leadFilter.status) &&
+    (!normalizedSearch || leadSearchText(lead).includes(normalizedSearch))
+  );
+  filtered.sort((a,b)=>{
+    if(leadSort==='oldest') return Date.parse(a.created_at||0)-Date.parse(b.created_at||0);
+    if(leadSort==='follow_up'){
+      return (Date.parse(a.next_follow_up||'9999-12-31')||Infinity)-
+        (Date.parse(b.next_follow_up||'9999-12-31')||Infinity);
+    }
+    if(leadSort==='name') return (a.name||'').localeCompare(b.name||'');
+    return Date.parse(b.created_at||0)-Date.parse(a.created_at||0);
+  });
+  const filters = [
+    leadSearch ? `Search: “${leadSearch}”` : '',
+    leadFilter.source ? `Website: ${sources.find(item=>item[0]===leadFilter.source)?.[1] || leadFilter.source}` : '',
+    leadFilter.status ? `Status: ${leadStatusLabel(leadFilter.status)}` : ''
+  ].filter(Boolean);
+  document.getElementById('leads-filter-note').textContent = filters.length
+    ? `${filtered.length} matching lead${filtered.length===1?'':'s'} · ${filters.join(' · ')}`
+    : `${leads.length} lead${leads.length===1?'':'s'} received across ${sources.length} connected website${sources.length===1?'':'s'}.`;
+  const empty = document.getElementById('lead-empty-msg');
+  empty.style.display = filtered.length ? 'none' : 'block';
+  empty.textContent = leadsAvailable
+    ? (leads.length ? 'No leads match the current filters.' : 'No leads have been received yet.')
+    : 'Install the supplied Supabase leads setup, then refresh this page.';
+  rows.innerHTML = filtered.map(lead=>{
+    const due = lead.next_follow_up && lead.next_follow_up<=today && !['converted','lost'].includes(lead.status);
+    return `<tr class="row">
+      <td><div class="lead-contact">
+        <strong>${esc(lead.name || 'Unnamed lead')}</strong>
+        <span>${esc(lead.business || lead.country || '')}</span>
+        ${lead.phone?`<a href="tel:${esc(lead.phone)}">${esc(lead.phone)}</a>`:''}
+      </div></td>
+      <td><div class="lead-product">
+        <strong>${esc(lead.product || lead.category || 'General inquiry')}</strong>
+        <span>${esc(lead.estimated_quantity || lead.message || '')}</span>
+      </div></td>
+      <td><span class="lead-source" title="${esc(lead.source_url || '')}">${esc(leadSourceName(lead))}</span></td>
+      <td><span class="lead-status ${esc(lead.status || 'new')}">${esc(leadStatusLabel(lead.status))}</span></td>
+      <td><div class="lead-dates">
+        Received: <b>${esc(leadDate(lead.created_at,true))}</b><br>
+        Follow-up: <b class="${due?'due':''}">${esc(leadDate(lead.next_follow_up))}</b>
+      </div></td>
+      <td><div class="lead-actions">
+        <button class="btn ghost sm" onclick="openLead('${lead.id}')">Open</button>
+        <button class="btn whatsapp sm" onclick="openLeadWhatsApp('${lead.id}')" ${lead.phone?'':'disabled'}>WhatsApp</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+  const navCount = document.getElementById('lead-nav-count');
+  if(navCount) navCount.textContent = newCount ? `(${newCount})` : '';
+}
+function openLead(id){
+  const lead = leads.find(item=>item.id===id);
+  if(!lead){ toast('Lead could not be found'); return; }
+  editingLeadId = id;
+  document.getElementById('lead-modal-title').textContent = lead.name || 'Lead details';
+  document.getElementById('lead-modal-source').textContent =
+    `${leadSourceName(lead)}${lead.category?' · '+lead.category:''} · received ${leadDate(lead.created_at,true)}`;
+  const reference = externalUrl(lead.reference_url);
+  const sourceUrl = externalUrl(lead.source_url);
+  document.getElementById('lead-modal-details').innerHTML = `
+    <strong>Business:</strong> ${esc(lead.business || '—')}<br>
+    <strong>Phone:</strong> ${esc(lead.phone || '—')} &nbsp; <strong>Email:</strong> ${esc(lead.email || '—')}<br>
+    <strong>Country:</strong> ${esc(lead.country || '—')}<br>
+    <strong>Product:</strong> ${esc(lead.product || lead.category || '—')} &nbsp; <strong>Quantity:</strong> ${esc(lead.estimated_quantity || '—')}<br>
+    <strong>Requirement:</strong> ${esc(lead.message || '—')}
+    ${reference?`<br><strong>Reference:</strong> <a href="${esc(reference)}" target="_blank" rel="noopener noreferrer">Open product reference ↗</a>`:''}
+    ${sourceUrl?`<br><strong>Source page:</strong> <a href="${esc(sourceUrl)}" target="_blank" rel="noopener noreferrer">Open website ↗</a>`:''}`;
+  document.getElementById('lead-edit-status').value = lead.status || 'new';
+  document.getElementById('lead-edit-follow-up').value = lead.next_follow_up || '';
+  document.getElementById('lead-edit-contacted').value = datetimeLocalValue(lead.last_contacted_at);
+  document.getElementById('lead-edit-notes').value = lead.admin_notes || '';
+  const assigned = document.getElementById('lead-edit-assigned');
+  assigned.innerHTML = `<option value="">Unassigned</option>` + staff
+    .filter(member=>member.active!==false)
+    .map(member=>`<option value="${esc(member.user_id)}">${esc(member.name || member.email || 'Team user')}</option>`).join('');
+  assigned.value = lead.assigned_to || '';
+  document.getElementById('lead-modal-whatsapp').disabled = !lead.phone;
+  document.getElementById('lead-modal-email').disabled = !lead.email;
+  document.getElementById('lead-modal-bg').classList.add('on');
+}
+function closeLeadModal(){
+  editingLeadId = null;
+  document.getElementById('lead-modal-bg').classList.remove('on');
+}
+async function saveLead(){
+  const lead = leads.find(item=>item.id===editingLeadId);
+  if(!lead) return;
+  const contactedValue = document.getElementById('lead-edit-contacted').value;
+  const updates = {
+    status:document.getElementById('lead-edit-status').value,
+    next_follow_up:document.getElementById('lead-edit-follow-up').value || null,
+    assigned_to:document.getElementById('lead-edit-assigned').value || null,
+    last_contacted_at:contactedValue ? new Date(contactedValue).toISOString() : null,
+    admin_notes:document.getElementById('lead-edit-notes').value.trim() || null,
+    updated_at:new Date().toISOString()
+  };
+  const button = document.getElementById('lead-save-button');
+  button.disabled = true;
+  if(NEEDS_SETUP){
+    Object.assign(lead,updates);
+  }else{
+    const {error} = await sb.from('leads').update(updates).eq('id',lead.id);
+    if(error){
+      button.disabled = false;
+      toast('Could not save lead: '+error.message);
+      return;
+    }
+    Object.assign(lead,updates);
+    await logActivity('updated','lead',lead.id,lead.name || lead.product || 'Lead',
+      `Lead status: ${leadStatusLabel(updates.status)}${updates.next_follow_up?`; follow-up ${updates.next_follow_up}`:''}`);
+  }
+  button.disabled = false;
+  closeLeadModal();
+  renderAdmin();
+  toast('Lead follow-up saved');
+}
+function leadWhatsAppMessage(lead){
+  return `Hello ${lead.name || ''},\n\nThank you for contacting Shaikh China Sourcing regarding ${lead.product || 'your sourcing requirement'}. I am following up on your inquiry.`;
+}
+function openLeadWhatsApp(id=editingLeadId){
+  const lead = leads.find(item=>item.id===id);
+  if(!lead?.phone){ toast('This lead has no WhatsApp number'); return; }
+  const phone = String(lead.phone).replace(/\D/g,'');
+  if(!phone){ toast('This lead has no valid WhatsApp number'); return; }
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(leadWhatsAppMessage(lead))}`,'_blank','noopener,noreferrer');
+}
+function openLeadEmail(id=editingLeadId){
+  const lead = leads.find(item=>item.id===id);
+  if(!lead?.email){ toast('This lead has no email address'); return; }
+  const subject = `Following up: ${lead.product || 'your sourcing inquiry'}`;
+  const body = `Hello ${lead.name || ''},\n\nThank you for contacting Shaikh China Sourcing. I am following up on your inquiry regarding ${lead.product || 'your sourcing requirement'}.`;
+  window.location.href = `mailto:${encodeURIComponent(lead.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 function renderDashboardSummaries(){
