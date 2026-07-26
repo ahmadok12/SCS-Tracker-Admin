@@ -1101,7 +1101,8 @@ let editingStaffId = null;
 let passwordStaffId = null;
 let editingCustomerId = null;
 function emptyOrderFilter(){ return {stage:'', customerId:'', category:'', state:''}; }
-let orderFilter = emptyOrderFilter();
+function defaultOrderFilter(){ return {...emptyOrderFilter(), state:'active'}; }
+let orderFilter = defaultOrderFilter();
 let orderSearch = '';
 let orderSort = 'newest';
 let orderViewMode = (() => {
@@ -1203,7 +1204,7 @@ async function doLogout(){
 }
 async function enterAdmin(){
   unlocked = true;
-  orderFilter = emptyOrderFilter();
+  orderFilter = defaultOrderFilter();
   orderSearch = '';
   orderSort = 'newest';
   adminPage = 'orders';
@@ -1380,8 +1381,16 @@ function renderAdmin(){
     ? `${filteredOrders.length} matching order${filteredOrders.length===1?'':'s'} · ${activeFilters.join(' · ')}`
     : `Showing all ${orders.length} order${orders.length===1?'':'s'}, sorted by ${document.getElementById('order-sort').selectedOptions[0].text.toLocaleLowerCase()}.`;
   document.getElementById('clear-order-filter').textContent = 'Reset';
+  const hasNonDefaultOrderControls = Boolean(
+    normalizedSearch ||
+    orderFilter.stage ||
+    orderFilter.category ||
+    orderFilter.customerId ||
+    orderFilter.state!=='active' ||
+    orderSort!=='newest'
+  );
   document.getElementById('clear-order-filter').style.display =
-    activeFilters.length || orderSort!=='newest' ? 'inline-block' : 'none';
+    hasNonDefaultOrderControls ? 'inline-block' : 'none';
   const empty = document.getElementById('empty-msg');
   empty.style.display = filteredOrders.length ? 'none':'block';
   empty.textContent = orders.length
@@ -1541,7 +1550,7 @@ function filterOrdersByCategory(category){
   showAdminPage('orders');
 }
 function clearOrderFilter(){
-  orderFilter = emptyOrderFilter();
+  orderFilter = defaultOrderFilter();
   orderSearch = '';
   orderSort = 'newest';
   renderAdmin();
